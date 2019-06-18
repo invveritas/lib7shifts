@@ -19,8 +19,7 @@ def get_user(user_id, client=None):
 class User(base.APIObject):
     """
     Represents a User from the 7shifts API, with all the same attributes
-    returned by the API. For the User ID, use :meth:`user_id`, since the 'id'
-    attribute is a built-in Python class attribute that we can't override.
+    returned by the API..
     """
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)

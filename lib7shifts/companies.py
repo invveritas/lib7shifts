@@ -19,7 +19,6 @@ def get_company(company_id, client=None):
 class Company(base.APIObject):
     """
     Represents a Company in 7shifts. This object has the same attributes as
-    the API object, except that the company ID is accessed at :attr:`user_id`
-    rather than `id`.
+    the API object.
     """
     pass
