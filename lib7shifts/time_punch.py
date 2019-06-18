@@ -5,11 +5,6 @@ import datetime
 #import cachetools
 from . import base
 from . import dates
-from . import users
-from . import shifts
-from . import locations
-from . import roles
-from . import departments
 
 ENDPOINT = '/time_punches'
 
@@ -100,6 +95,7 @@ class TimePunch(base.APIObject):
         shift data from a :func:`read` operation.
         """
         if self._shift is None:
+            from . import shifts
             self._shift = shifts.get_shift(self.shift_id, client=self.client)
         return self._shift
 
@@ -108,6 +104,7 @@ class TimePunch(base.APIObject):
         An API fetch will be used if this object wasn't initially seeded with
         user data from a :func:`read` operation."""
         if self._user is None:
+            from . import users
             self._user = users.get_user(self.user_id, client=self.client)
         return self._user
 
@@ -116,6 +113,7 @@ class TimePunch(base.APIObject):
         specified by the punch.
         An API fetch will be used to fulfill this call."""
         if self._role is None:
+            from . import roles
             self._role = roles.get_role(self.role_id, client=self.client)
         return self._role
 
@@ -125,6 +123,7 @@ class TimePunch(base.APIObject):
         An API fetch will be used if this object wasn't initially seeded with
         location data from a :func:`read` operation."""
         if self._location is None:
+            from . import locations
             self._location = locations.get_location(
                 self.location_id, client=self.client)
         return self._location
@@ -135,6 +134,7 @@ class TimePunch(base.APIObject):
         An API fetch will be used if this object wasn't initially seeded with
         department data from a :func:`read` operation."""
         if self._department is None:
+            from . import departments
             self._department = departments.get_department(
                 self.department_id, client=self.client)
         return self._department
@@ -215,6 +215,7 @@ class TimePunchBreak(base.APIObject):
         """Perform an API fetch and return a :class:`lib7shfits.users.User`
         class for the user"""
         if self._user is None:
+            from . import users
             self._user = users.get_user(self.user_id, client=self.client)
         return self._user
 
