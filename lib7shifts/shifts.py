@@ -4,6 +4,7 @@ API methods and objects related to 7Shifts Shifts.
 See https://www.7shifts.com/partner-api#toc-shifts for details about supported
 operations.
 """
+import datetime
 from . import base
 from . import dates
 
@@ -51,7 +52,7 @@ def list_shifts(**kwargs):
         else:
             api_params[name] = val
     response = client.call("{}".format(ENDPOINT), params=api_params)
-    return DepartmentList.from_api_data(response['data'], client=client)
+    return ShiftList.from_api_data(response['data'], client=client)
 
 class Shift(base.APIObject):
     """
