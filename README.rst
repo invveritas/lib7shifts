@@ -3,13 +3,13 @@
 
 A library for interacting with the 7shifts REST API in Python3.
 
-Before using this API, it's a good idea to get familiarized with 7shifts itself
-and then read the API documentation, here:
+Before using this library, it's a good idea to be familiar with 7shifts,
+itself, and read the API documentation, here:
 
 https://www.7shifts.com/partner-api
 
 This library currently implements read operations only, but it
-can be extended to implement all API operations relatively easily.
+can be extended to implement all CRUD operations relatively easily.
 
 Object Model
 ------------
@@ -69,5 +69,5 @@ This is a quick example of looping over time punches for a specific period::
         print("{:8d} From:{} To:{} User ID: {}".format(
             punch.id, punch.clocked_in, punch.clocked_out, punch.user_id))
 
-This example uses 7shifts `clocked_in[gte]` parameter to find all the punches
+This example uses 7shifts' `clocked_in[gte]` parameter to find all the punches
 where the user clocked in on 2019-06-10 at 12am or later.
