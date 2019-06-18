@@ -54,5 +54,5 @@ class DepartmentList(list):
         """
         obj_list = []
         for item in data:
-            obj_list.append(Department(**item, client=client))
-        return cls.__init__(obj_list)
+            obj_list.append(Department(**item['department'], client=client))
+        return cls(obj_list)

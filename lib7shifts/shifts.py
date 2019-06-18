@@ -149,4 +149,4 @@ class ShiftList(list):
         obj_list = []
         for item in data:
             obj_list.append(Shift(**item, client=client))
-        return cls.__init__(obj_list)
+        return cls(obj_list)
