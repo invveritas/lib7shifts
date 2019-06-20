@@ -51,6 +51,17 @@ class APIObject(object):
         """
         return self.__data[name]
 
+    def _update_api_data(self, new_data):
+        """
+        Use this method to replace the underlying API data for an object.
+        This method is important to trigger invalidation/refreshes of any
+        underlying cache layer. At the moment, the entirety of the object's
+        data must be replaced, no merging takes place.
+
+        Should only be called from within an object or its descendants.
+        """
+        self.__data = new_data
+
     def __getattr__(self, name):
         """
         Handy method for exposing all of the API properties without creating
