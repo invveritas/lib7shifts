@@ -9,16 +9,16 @@ from . import dates
 
 ENDPOINT = '/roles'
 
-def get_role(role_id, client=None):
+def get_role(client, role_id):
     """Implements the 'Read' method from the 7shifts API for roles.
     Returns a :class:`Role` object."""
-    response = client.call("{}/{:d}".format(ENDPOINT, role_id))
+    response = client.read(ENDPOINT, role_id)
     try:
         return Role(**response['data']['role'], client=client)
     except KeyError:
         raise exceptions.EntityNotFoundError('Role', role_id)
 
-def list_roles(**kwargs):
+def list_roles(client, **kwargs):
     """Implements the 'List' operation for 7shifts roles, returning all the
     roles associated with the company you've authenticated with (by default).
 
@@ -32,8 +32,7 @@ def list_roles(**kwargs):
 
     Returns a :class:`RoleList` object containing :class:`Role` objects.
     """
-    client = kwargs.pop('client')
-    response = client.call("{}".format(ENDPOINT), params=kwargs)
+    response = client.list(ENDPOINT, fields=kwargs)
     return RoleList.from_api_data(response['data'], client=client)
 
 class Role(base.APIObject):
@@ -55,5 +54,5 @@ class RoleList(list):
         """
         obj_list = []
         for item in data:
-            obj_list.append(Role(**item, client=client))
+            obj_list.append(Role(**item['role'], client=client))
         return cls(obj_list)

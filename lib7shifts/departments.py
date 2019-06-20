@@ -8,16 +8,16 @@ from . import base
 
 ENDPOINT = '/departments'
 
-def get_department(department_id, client=None):
+def get_department(client, department_id):
     """Implements the 'Read' method from the 7shifts API for departments.
     Returns a :class:`Department` object."""
-    response = client.call("{}/{:d}".format(ENDPOINT, department_id))
+    response = client.read(ENDPOINT, department_id)
     try:
         return Department(**response['data']['department'], client=client)
     except KeyError:
         raise exceptions.EntityNotFoundError('Department', department_id)
 
-def list_departments(**kwargs):
+def list_departments(client, **kwargs):
     """Implements the 'List' operation for 7shifts departments, returning the
     departments associated with the company you've authenticated with (by default).
 
@@ -31,8 +31,7 @@ def list_departments(**kwargs):
 
     Returns a :class:`RoleList` object containing :class:`Role` objects.
     """
-    client = kwargs.pop('client')
-    response = client.call("{}".format(ENDPOINT), params=kwargs)
+    response = client.list(ENDPOINT, fields=kwargs)
     return DepartmentList.from_api_data(response['data'], client=client)
 
 class Department(base.APIObject):

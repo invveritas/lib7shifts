@@ -18,3 +18,7 @@ def from_datetime(dt_obj):
 def to_y_m_d(dt_obj):
     """Converts a datetime object to text in YYYY-MM-DD format"""
     return dt_obj.strftime("%Y-%m-%d")
+
+def to_h_m_s(dt_obj):
+    """Outputs just the time-portion of a datetime object in HH:MM:SS form"""
+    return dt_obj.strftime("%H:%M:%S")

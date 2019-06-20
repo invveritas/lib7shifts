@@ -7,10 +7,10 @@ from . import base
 
 ENDPOINT = '/companies'
 
-def get_company(company_id, client=None):
+def get_company(client, company_id):
     """Implements the 'Read' API in 7Shifts for Companies.
     Returns a :class:`Company` object."""
-    response = client.call("{}/{:d}".format(ENDPOINT, company_id))
+    response = client.read(ENDPOINT, company_id)
     try:
         return Company(**response['data']['company'], client=client)
     except KeyError:

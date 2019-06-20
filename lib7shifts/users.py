@@ -6,11 +6,11 @@ from . import exceptions
 
 ENDPOINT = '/users'
 
-def get_user(user_id, client=None):
+def get_user(client, user_id):
     """Implements the 'Read' API in 7Shifts for the given `user_id`.
     Returns a :class:`User` object, or raises
     :class:`exceptions.EntityNotFoundError` if the user wasn't found."""
-    response = client.call("{}/{:d}".format(ENDPOINT, user_id))
+    response = client.read(ENDPOINT, user_id)
     try:
         return User(**response['data']['user'], client=client)
     except KeyError:

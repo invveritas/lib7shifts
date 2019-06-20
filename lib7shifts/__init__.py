@@ -1,4 +1,17 @@
-import apiclient
+"""
+Base module for 7shifts API support. This module imports all of the user-facing
+classes and functions from the other modules in lib7shifts, so you only need to
+import this module to use the full suite, eg::
+
+    from lib7shifts import get_client, list_punches
+    client = get_client(api_key='YOURAPIKEYHERE')
+    punches = list_punches(client, **{'clocked_in[gte]': '2019-06-07'})
+    for punch in punches:
+        print(punch)
+
+"""
+import logging
+import certifi
 import urllib3
 import json
 try:
@@ -7,50 +20,150 @@ except ImportError:
     from urllib.parse import urlencode
 from . import exceptions
 
-__version__ = "0.1"
+from .events import (create_event, get_event, update_event, delete_event,
+                     list_events, Event, EventList)
+from .departments import (get_department, list_departments,
+                          Department, DepartmentList)
+from .roles import (get_role, list_roles, Role, RoleList)
+from .users import (get_user, User)
+from .companies import (get_company, Company)
+from .shifts import (get_shift, list_shifts, Shift, ShiftList)
+from .locations import (get_location, list_locations, Location, LocationList)
+from .time_punches import (get_punch, list_punches, TimePunch, TimePunchList,
+                           TimePunchBreak, TimePunchBreakList)
 
-def get_client(api_key, *args, **kwargs):
-    "Returns an :class:`APIClient`"
-    return APIClient(api_key, *args, **kwargs)
+def get_client(api_key, **kwargs):
+    "Returns an :class:`APIClient7Shifts`"
+    return APIClient7Shifts(api_key=api_key, **kwargs)
 
-def merge_two_dicts(x, y):
-    """Given two dicts, merge them into a new dict as a shallow copy."""
-    z = x.copy()
-    z.update(y)
-    return z
-
-class APIClient(apiclient.APIClient):
+class APIClient7Shifts(object):
     """
-    Extension of the APIClient class from apiclient, specific to 7shifts.
+    7shifts API v1 client.
+
+    Natively uses urllib3 connection pooling and includes support for rate
+    limiting with a RateLimiter from the `apiclient` module. This code was
+    originally based on the `apiclient` library, but has diverged substantially
+    enough to be something all its own. Still, thanks to Andrey Petrov for the
+    original design and inspiration.
     """
 
     BASE_URL = 'https://api.7shifts.com/v1'
+    ENCODING = 'utf8'
+    KEEP_ALIVE = True
+    USER_AGENT = 'py-lib7shifts'
 
-    def __init__(self, api_key, *args, **kwargs):
-        super(APIClient, self).__init__(*args, **kwargs)
-        self.api_key = api_key
-        self.auth_headers = urllib3.util.make_headers(
-            basic_auth='{}:'.format(self.api_key))
-        self._user_cache = {}
-        self._role_cache = {}
+    def __init__(self, **kwargs):
+        """
+        Supported kwargs:
 
-    def _request(self, method, path, headers=None, params=None):
+        - api_key: the api key to use for requests (required)
+        - rate_limit_lock - from apiclient.ratelimiter module
+        """
+        self.log = logging.getLogger(self.__class__.__name__)
+        self.api_key = kwargs.pop('api_key')
+        self.rate_limit_lock = kwargs.pop('rate_limit_lock', None)
+        self._connection_pool = None
+
+    def read(self, endpoint, item_id, **urlopen_kw):
+        """Perform Reads against 7shifts API for the specified endpoint/ID.
+        Pass parameters using the `fields` kwarg."""
+        return self._request(
+            'GET', "{}/{:d}".format(endpoint, item_id), **urlopen_kw)
+
+    def create(self, endpoint, **urlopen_kw):
+        """Performs Create operations in the 7shifts API
+        IMPORTANT: Pass POST data using the ``body`` kwarg, unencoded. The
+        data will be JSON encoded before posting.
+        """
+        body = json.dumps(urlopen_kw.pop('body', dict()))
+        return self._request(
+            'POST', endpoint, body=body, **urlopen_kw)
+
+    def update(self, endpoint, item_id, **urlopen_kw):
+        """Perform Update operations for the given endpoint/item_id
+        IMPORTANT: Pass PUT data using the ``body`` kwarg, unencoded. The
+        data will be JSON encoded before posting.
+        """
+        body = json.dumps(urlopen_kw.pop('body', dict()))
+        return self._request(
+            'PUT', "{}/{:d}".format(endpoint, item_id), body=body, **urlopen_kw)
+
+    def delete(self, endpoint, item_id, **urlopen_kw):
+        "Delete the item at the given endpoint with the given ID"
+        return self._request(
+            'DELETE', "{}/{:d}".format(endpoint, item_id), **urlopen_kw)
+
+    def list(self, endpoint, **urlopen_kw):
+        """Convenience wrapper for :meth:`request` with GET method.
+        Pass a list of parameters using the `fields` kwarg."""
+        return self._request(
+            'GET', endpoint, **urlopen_kw)
+
+    def _request(self, method, path, **urlopen_kw):
+        """
+        Wrapper around the connectionpool request method to add rate limiting.
+        HTTP GET parameters and POST/PUT key-value field combinations can be
+        passed as 'fields', and will be properly encoded by urllib3 and
+        correctly placed in the request.
+
+        Any headers passed as kwargs will be merged with underlying ones that
+        are required to make the API function properly, with the headers
+        passed here overriding the built-in ones (such as to disable
+        keepalives or change the user_agent).
+        """
         try:
-            headers = merge_two_dicts(headers, self.auth_headers)
-        except (TypeError, AttributeError):
-            headers = self.auth_headers
+            self.rate_limit_lock.acquire()
+        except AttributeError:
+            pass
+        response = self.connection_pool.request(
+            method.upper(), path, **urlopen_kw)
+        return self._handle_response(response)
 
-        url = self._compose_url(path, params)
+    @property
+    def connection_pool(self):
+        """
+        Returns an initialized connection pool. If the pool becomes broken
+        in some way, it can be destroyed with :meth:`_destroy_pool` and a
+        subsequent call to this attribute will initialize a new pool.
+        """
+        if self._connection_pool is None:
+            self._create_pool()
+        return self._connection_pool
 
-        self.rate_limit_lock and self.rate_limit_lock.acquire()
-        r = self.connection_pool.urlopen(method.upper(), url, headers=headers)
+    def _destroy_pool(self):
+        """
+        Tear down the existing HTTP(S)ConnectionPool such that a subsequent
+        call to :attr:`connection_pool` generates a new pool to work with.
+        Useful in cases where authentication timeouts occur.
+        """
+        # TODO: locking around this kind of thing for thread safety
+        self._connection_pool = None
 
-        return self._handle_response(r)
+    def _create_pool(self):
+        """Use the handy urllib3 connection_from_url helper to create a
+        pool of the correct type for HTTP/HTTPS.
+        This also seeds the pool with the base URL so that subsequent requests
+        only use the URI portion rather than an absolute URL.
 
-    def _compose_url(self, path, params=None):
-        return self.BASE_URL + path + '?' + urlencode(params)
+        Stores a reference to the pool for use with :attr:`connection_pool`
+        """
+        headers = urllib3.util.make_headers(
+            keep_alive=self.KEEP_ALIVE,
+            user_agent=self.USER_AGENT,
+            basic_auth='{}:'.format(self.api_key))
+        # TODO: locking around this kind of thing for thread safety
+        self._connection_pool = urllib3.connectionpool.connection_from_url(
+            self.BASE_URL, cert_reqs='CERT_REQUIRED', ca_certs=certifi.where(),
+            headers=headers)
 
     def _handle_response(self, response):
+        """
+        In the case of a normal response, deserializes the response from
+        JSON back into dictionary form, and returns it. In case of a response
+        code of 300 or higher, raises an :class:`exceptions.APIError` exception.
+        Note that if you are seeing weirdness in the API response data, look
+        at the :attr:`ENCODING` attribute for this class.
+        """
         if response.status > 299:
             raise exceptions.APIError(response.status, response=response)
-        return super(APIClient, self)._handle_response(response)
+        return json.loads(response.data.decode(self.ENCODING))

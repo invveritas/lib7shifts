@@ -15,7 +15,7 @@ class APIObject(object):
 
     def __init__(self, **kwargs):
         self._client = kwargs.pop('client', None)
-        self._data = kwargs
+        self.__data = kwargs
 
     @property
     def client(self):
@@ -25,13 +25,31 @@ class APIObject(object):
     @property
     def created(self):
         "Returns a :class:`datetime.datetime` object for shift creation time"
-        return dates.to_datetime(self._data['created'])
+        return dates.to_datetime(self._api_data('created'))
 
     @property
     def modified(self):
         """Returns a :class:`datetime.datetime` object corresponding to the
         last time this shift was modified"""
-        return dates.to_datetime(self._data['modified'])
+        return dates.to_datetime(self._api_data('modified'))
+
+    def refresh(self):
+        """Full CRUD implementations need to ensure that objects can be
+        refreshed after they are updated through the API. This method provides
+        a common code path to trigger object updates. Generally speaking,
+        this method should call the appropriate Read method for the
+        object being refreshed and replace the object's underlying _data
+        dict with the new dataset.
+        """
+        raise NotImplementedError
+
+    def _api_data(self, name):
+        """
+        This object wraps calls to the class's underlying data dictionary,
+        allowing us to abstract that dictionary away through layers of caching
+        etc.
+        """
+        return self.__data[name]
 
     def __getattr__(self, name):
         """
@@ -41,7 +59,7 @@ class APIObject(object):
         have an attribute of ``name``, so not a risk of breaking the object
         and thus, we can add attributes to override this behaviour, as well.
         """
-        return self._data[name]
+        return self._api_data(name)
 
     def __str__(self):
-        return self._data.__str__()
+        return self.__data.__str__()

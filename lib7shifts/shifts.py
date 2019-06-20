@@ -11,21 +11,21 @@ from . import dates
 ENDPOINT = '/shifts'
 SHIFT_STATUS_MAP = {0: "No status", 1: "Sick", 2: "No-show", 3: "Late"}
 
-def get_shift(shift_id, client=None):
+def get_shift(client, shift_id):
     """Implements the 'Read' method from the 7shifts API for shifts.
     Returns a :class:`Shift` object."""
-    response = client.call("{}/{:d}".format(ENDPOINT, shift_id))
+    response = client.read(ENDPOINT, shift_id)
     try:
         return Shift(**response['data']['shift'], client=client)
     except KeyError:
         raise exceptions.EntityNotFoundError('Shift', shift_id)
 
-def list_shifts(**kwargs):
+def list_shifts(client, **kwargs):
     """Implements the 'List' operation for 7shifts Shifts, returning the
     shifts associated with the company you've authenticated with based on your
     filter parameters.
 
-    Pass in an active :class:`lib7shifts.APIClient` object and any of the
+    Pass in an active :class:`lib7shifts.APIClient7Shifts` object and any of the
     following parameters supported by the API:
 
     - location_id: only get shifts for this location
@@ -44,14 +44,13 @@ def list_shifts(**kwargs):
 
     Returns a :class:`ShiftList` object containing :class:`Shift` objects.
     """
-    client = kwargs.pop('client')
     api_params = {}
     for name, val in kwargs.items():
         if isinstance(val, datetime.datetime):
             api_params[name] = dates.from_datetime(val)
         else:
             api_params[name] = val
-    response = client.call("{}".format(ENDPOINT), params=api_params)
+    response = client.list(ENDPOINT, fields=api_params)
     return ShiftList.from_api_data(response['data'], client=client)
 
 class Shift(base.APIObject):
@@ -70,12 +69,12 @@ class Shift(base.APIObject):
     @property
     def start(self):
         "Returns a :class:`datetime.datetime` object for the start time"
-        return dates.to_datetime(self._data['start'])
+        return dates.to_datetime(self._api_data('start'))
 
     @property
     def end(self):
         "Returns a :class:`datetime.datetime` object for the end time"
-        return dates.to_datetime(self._data['end'])
+        return dates.to_datetime(self._api_data('end'))
 
     def shift_flag_status(self):
         """Returns the status of the shift flag in text format"""
@@ -149,5 +148,5 @@ class ShiftList(list):
         """
         obj_list = []
         for item in data:
-            obj_list.append(Shift(**item, client=client))
+            obj_list.append(Shift(**item['shift'], client=client))
         return cls(obj_list)
