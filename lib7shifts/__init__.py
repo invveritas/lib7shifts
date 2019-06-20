@@ -62,7 +62,7 @@ class APIClient7Shifts(object):
         self.log = logging.getLogger(self.__class__.__name__)
         self.api_key = kwargs.pop('api_key')
         self.rate_limit_lock = kwargs.pop('rate_limit_lock', None)
-        self._connection_pool = None
+        self.__connection_pool = None
 
     def read(self, endpoint, item_id, **urlopen_kw):
         """Perform Reads against 7shifts API for the specified endpoint/ID.
@@ -94,50 +94,54 @@ class APIClient7Shifts(object):
             'DELETE', "{}/{:d}".format(endpoint, item_id), **urlopen_kw)
 
     def list(self, endpoint, **urlopen_kw):
-        """Convenience wrapper for :meth:`request` with GET method.
+        """Implements the List method for 7shifts API objects.
         Pass a list of parameters using the `fields` kwarg."""
         return self._request(
             'GET', endpoint, **urlopen_kw)
 
-    def _request(self, method, path, **urlopen_kw):
-        """
-        Wrapper around the connectionpool request method to add rate limiting.
-        HTTP GET parameters and POST/PUT key-value field combinations can be
-        passed as 'fields', and will be properly encoded by urllib3 and
-        correctly placed in the request.
-
-        Any headers passed as kwargs will be merged with underlying ones that
-        are required to make the API function properly, with the headers
-        passed here overriding the built-in ones (such as to disable
-        keepalives or change the user_agent).
-        """
-        try:
-            self.rate_limit_lock.acquire()
-        except AttributeError:
-            pass
-        response = self.connection_pool.request(
-            method.upper(), path, **urlopen_kw)
-        return self._handle_response(response)
-
     @property
-    def connection_pool(self):
+    def _connection_pool(self):
         """
         Returns an initialized connection pool. If the pool becomes broken
         in some way, it can be destroyed with :meth:`_destroy_pool` and a
         subsequent call to this attribute will initialize a new pool.
         """
-        if self._connection_pool is None:
+        if self.__connection_pool is None:
             self._create_pool()
-        return self._connection_pool
+        return self.__connection_pool
+
+    def _request(self, method, path, **urlopen_kw):
+        """
+        Wrapper around the ConnectionPool request method to add rate limiting
+        and response handling.
+
+        HTTP GET parameters should be passed as 'fields', and will be properly
+        encoded by urllib3 and correctly placed into the request uri. For
+        POST and PUT operations, the ``body`` kwarg should be supplied and
+        already in encoded form (that's generally done by one of the methods
+        above.)
+
+        Any headers passed as kwargs will be merged with underlying ones that
+        are required to make the API function properly, with the headers
+        passed here overriding built-ins (such as to override the user_agent
+        for a particular request).
+        """
+        try:
+            self.rate_limit_lock.acquire()
+        except AttributeError:
+            pass
+        response = self._connection_pool.request(
+            method.upper(), path, **urlopen_kw)
+        return self._handle_response(response)
 
     def _destroy_pool(self):
         """
         Tear down the existing HTTP(S)ConnectionPool such that a subsequent
-        call to :attr:`connection_pool` generates a new pool to work with.
+        call to :attr:`_connection_pool` generates a new pool to work with.
         Useful in cases where authentication timeouts occur.
         """
         # TODO: locking around this kind of thing for thread safety
-        self._connection_pool = None
+        self.__connection_pool = None
 
     def _create_pool(self):
         """Use the handy urllib3 connection_from_url helper to create a
@@ -145,21 +149,21 @@ class APIClient7Shifts(object):
         This also seeds the pool with the base URL so that subsequent requests
         only use the URI portion rather than an absolute URL.
 
-        Stores a reference to the pool for use with :attr:`connection_pool`
+        Stores a reference to the pool for use with :attr:`_connection_pool`
         """
         headers = urllib3.util.make_headers(
             keep_alive=self.KEEP_ALIVE,
             user_agent=self.USER_AGENT,
             basic_auth='{}:'.format(self.api_key))
         # TODO: locking around this kind of thing for thread safety
-        self._connection_pool = urllib3.connectionpool.connection_from_url(
+        self.__connection_pool = urllib3.connectionpool.connection_from_url(
             self.BASE_URL, cert_reqs='CERT_REQUIRED', ca_certs=certifi.where(),
             headers=headers)
 
     def _handle_response(self, response):
         """
         In the case of a normal response, deserializes the response from
-        JSON back into dictionary form, and returns it. In case of a response
+        JSON back into dictionary form and returns it. In case of a response
         code of 300 or higher, raises an :class:`exceptions.APIError` exception.
         Note that if you are seeing weirdness in the API response data, look
         at the :attr:`ENCODING` attribute for this class.
