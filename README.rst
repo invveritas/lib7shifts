@@ -1,5 +1,5 @@
-7shifts Tools
-=============
+lib7shifts
+==========
 
 A library for interacting with the 7shifts REST API in Python3.
 
@@ -35,12 +35,12 @@ mimic the API object representations
 exactly, that is to say that they have the same attributes and generally the
 same data types (except date fields, which are converted to datetime
 objects). So if the API says that the ``User`` object has an attribute called
-*id*, then our ``User`` class also has an attribute called ID, and the value
+*id*, then our ``User`` class also has an attribute called *id*, and the value
 is an integer. Similar for booleans, text fields, etc.
 
 Each object is a thin wrapper around an underlying dictionary provided by
 the API, but many have methods to make programming workflows simpler. For
-example, objects that have a user_id attribute embedded within them also
+example, objects that have a *user_id* attribute embedded within them also
 have a ``get_user()`` method, which returns a ``lib7shifts.users.User``
 representation of the user, which in turn has convenience methods for fetching
 company data, and so on.
@@ -59,7 +59,7 @@ Functional Design Pattern
 For speed and simplicity, functional
 code is used for all supported CRUD operations (*Create, Read, Update and
 Delete*, as well as *List*, a specialized version of *Read*). Each of the
-objects listed above should have a ``create_[object])()`` function associated
+objects listed above should have a ``create_[object]()`` function associated
 with them, such as ``create_department()`` or ``create_event()``. Similarly,
 read-type operations are done with ``get_`` or ``list_``
 functions like ``get_user()`` and ``list_time_punches()``. You can probably
@@ -103,8 +103,8 @@ Here's an example of a workflows to perform all CRUD operations for events::
     # CREATE
     event_id = lib7shifts.create_event(
         client, title='Some Event', description='A thing is happening',
-        date='2019-06-03', start='12:00', color='FBAF40',
-        location=[52453]) # location has to be a list
+        date='2019-06-03', start='12:00:00', color='FBAF40',
+        location=[12345]) # location has to be a list
 
     # READ
     event = lib7shifts.get_event(client, event_id)
@@ -143,15 +143,15 @@ ID number::
 
 Shifts
 ------
-Shifts have two different read-based methods - `get_shift` and `list_shifts`.
-The get method is designed to find a shift based on a specified ID,
-whereas the list method finds all the shifts matching specified criteria. For
+Shifts have two different read-based methods - ``get_shift`` and ``list_shifts``.
+The *get* method is designed to find a shift based on a specified ID,
+whereas the *list* method finds all the shifts matching specified criteria. For
 example, here's how we find all the shifts for the user with ID 1000::
 
     for shift in lib7shifts.list_shifts(client, user_id=1000):
         print(shift)
 
-Note that we are printing a :class:`lib7shifts.shifts.Shift` object in the for
+Note that we are printing a ``lib7shifts.shifts.Shift`` object in the for
 loop.
 
 Time Punches
@@ -166,6 +166,6 @@ This example uses 7shifts' *clocked_in[gte]* parameter to find all the punches
 where the user clocked in on 2019-06-10 at 12am or later (in the timezone
 of the company as configured in 7shifts, itself). Because Python functions
 don't directly support brackets in the parameter names, you need to either
-set them up as keys in a dictionary and pass in as ``\*\*kwargs``, or you need
+set them up as keys in a dictionary and pass in as ``**kwargs``, or you need
 to use the syntax shown here to expand a dictionary into function parameters
 inline.
