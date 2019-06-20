@@ -17,7 +17,7 @@ def create_event(client, **kwargs):
     - title
     - description
     - date ('YYYY-MM-DD' format)
-    - start ('HH:MM[:ss]' format)
+    - start ('HH:MM:SS' format)
     - color (hexadecimal code as string, eg 'FBAF40')
     - location (as either a list of IDs or a :class:`locations.LocationList`)
     - client (api client object to use)
@@ -51,7 +51,7 @@ def update_event(client, event_id, **kwargs):
     - description
     - color
     - date (in 'YYYY-MM-DD' form)
-    - start (in 'HH:MM[:SS]' form)
+    - start (in 'HH:MM:SS' form)
 
     You must also pass a 'client' kwarg with an active API client.
     Upon success, returns the ID of the event.
@@ -120,12 +120,6 @@ class Event(base.APIObject):
         "Returns an array of :class:`lib7shifts.locations.Location` objects"
         return locations.LocationList.from_id_list(
             self.location, client=self.client)
-
-    def refresh(self):
-        """
-        Refresh this object with new data from the API.
-        """
-
 
 class EventList(list):
     """
