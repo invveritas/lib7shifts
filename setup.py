@@ -13,14 +13,9 @@ setup(
     long_description=readme(),
     author='Prairie Dog Brewing CANADA Inc',
     author_email='gerad@prairiedogbrewing.ca',
-    url='http://github.com/prairiedogbeer/7shifts-tools',
+    url='https://github.com/geradcoles/lib7shifts',
     packages=find_packages(),
-    install_requires=[
-        'setuptools',
-        'docopt',
-        'PyYAML',
-        'apiclient',
-    ],
+    install_requires=[],
     #scripts=[
     #    'bin/foo
     #],
