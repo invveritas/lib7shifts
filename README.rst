@@ -115,7 +115,7 @@ Here's an example of a workflows to perform all CRUD operations for events::
     lib7shifts.update_event(client, event.id, date='2019-06-06', title='Testing')
 
     # DELETE
-    lib7shifts.delete_event(event.id)
+    lib7shifts.delete_event(client, event.id)
 
     # LIST
     events = lib7shifts.list_events(client, date='2019-06-03')
