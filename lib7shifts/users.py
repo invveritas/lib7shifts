@@ -54,17 +54,6 @@ class User(base.APIObject):
         """
         return self.employee_id
 
-    @property
-    def payroll_id(self):
-        """
-        Returns the employee ID number used in payroll integrations/reports.
-
-        ..note::
-            This field wasn't present in the API documentation but it does
-            exist in the API results as of June 2019
-        """
-        return self.payroll_id
-
     def is_employee(self):
         "Returns True if the user_type_id is 1 (employee) - doesn't include mgmt"
         if self.user_type_id == 1:
