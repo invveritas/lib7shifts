@@ -44,8 +44,7 @@ def list_shifts(client, **kwargs):
 
     Returns a :class:`ShiftList` object containing :class:`Shift` objects.
     """
-    api_params = {}
-    response = client.list(ENDPOINT, fields=api_params)
+    response = client.list(ENDPOINT, fields=kwargs)
     return ShiftList.from_api_data(response['data'], client=client)
 
 class Shift(base.APIObject):

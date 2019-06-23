@@ -85,8 +85,7 @@ def list_events(client, **kwargs):
 
     Returns an EventsList.
     """
-    api_params = {}
-    response = client.list(ENDPOINT, fields=api_params)
+    response = client.list(ENDPOINT, fields=kwargs)
     return EventList.from_api_data(response['data'], client=client)
 
 class Event(base.APIObject):

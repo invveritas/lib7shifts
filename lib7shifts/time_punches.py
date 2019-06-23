@@ -41,8 +41,7 @@ def list_punches(client, **kwargs):
     See https://www.7shifts.com/partner-api#crud-toc-time-punches-list for
     details.
     """
-    api_params = {}
-    response = client.list(ENDPOINT, fields=api_params)
+    response = client.list(ENDPOINT, fields=kwargs)
     return TimePunchList.from_api_data(response['data'], client=client)
 
 class TimePunch(base.APIObject):
