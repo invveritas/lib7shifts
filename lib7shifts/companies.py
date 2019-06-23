@@ -16,6 +16,15 @@ def get_company(client, company_id):
     except KeyError:
         raise exceptions.EntityNotFoundError('Company', company_id)
 
+def list_companies(client):
+    """Implements the 'List' operation for 7shifts companies. Because the API
+    key binds you to a single company, this method always returns an array
+    containing a single :class:`Company`. For consistency with the other API
+    list methods, the list wrapper is returned rather than the company alone.
+    """
+    response = client.list(ENDPOINT)
+    return (Company(**response['data'][0]['company'], client=client), )
+
 class Company(base.APIObject):
     """
     Represents a Company in 7shifts. This object has the same attributes as

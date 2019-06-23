@@ -25,8 +25,8 @@ from .events import (create_event, get_event, update_event, delete_event,
 from .departments import (get_department, list_departments,
                           Department, DepartmentList)
 from .roles import (get_role, list_roles, Role, RoleList)
-from .users import (get_user, User)
-from .companies import (get_company, Company)
+from .users import (get_user, list_users, User)
+from .companies import (get_company, list_companies, Company)
 from .shifts import (get_shift, list_shifts, Shift, ShiftList)
 from .locations import (get_location, list_locations, Location, LocationList)
 from .time_punches import (get_punch, list_punches, TimePunch, TimePunchList,

@@ -16,6 +16,23 @@ def get_user(client, user_id):
     except KeyError:
         raise exceptions.EntityNotFoundError('User', user_id)
 
+def list_users(client, **kwargs):
+    """Implements the 'List' operation for 7shifts users, returning all the
+    users associated with the company you've authenticated with (by default).
+
+    Pass in an active :class:`lib7shifts.APIClient` object and any of the
+    following parameters supported by the API:
+
+    - limit: limit the number of results to be returned
+    - offset: return results starting from an offset
+    - order_field: the field to order results by, eg: order_field=shift.modified
+    - order_dir: "asc" or "desc"
+
+    Returns a :class:`UserList` object containing :class:`User` objects.
+    """
+    response = client.list(ENDPOINT, fields=kwargs)
+    return UserList.from_api_data(response['data'], client=client)
+
 class User(base.APIObject):
     """
     Represents a User from the 7shifts API, with all the same attributes
@@ -87,3 +104,18 @@ class User(base.APIObject):
             self._company = companies.get_company(
                 self.company_id, client=self.client)
         return self._company
+
+class UserList(list):
+    """
+    An interable list of User objects.
+    """
+
+    @classmethod
+    def from_api_data(cls, data, client=None):
+        """Provide this method with the user data returned directly from
+        the API in raw format.
+        """
+        obj_list = []
+        for item in data:
+            obj_list.append(User(**item['user'], client=client))
+        return cls(obj_list)
