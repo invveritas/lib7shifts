@@ -16,8 +16,8 @@ setup(
     url='https://github.com/geradcoles/lib7shifts',
     packages=find_packages(),
     install_requires=[],
-    #scripts=[
-    #    'bin/foo
-    #],
+    scripts=[
+        'bin/7shifts2sqlite',
+    ],
     test_suite="nose.collector",
 )
