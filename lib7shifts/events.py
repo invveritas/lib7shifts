@@ -86,11 +86,6 @@ def list_events(client, **kwargs):
     Returns an EventsList.
     """
     api_params = {}
-    for name, val in kwargs.items():
-        if isinstance(val, datetime.datetime):
-            api_params[name] = dates.to_y_m_d(val)
-        else:
-            api_params[name] = val
     response = client.list(ENDPOINT, fields=api_params)
     return EventList.from_api_data(response['data'], client=client)
 

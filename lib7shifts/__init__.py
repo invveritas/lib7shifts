@@ -19,6 +19,7 @@ try:
 except ImportError:
     from urllib.parse import urlencode
 from . import exceptions
+from . import dates
 
 from .events import (create_event, get_event, update_event, delete_event,
                      list_events, Event, EventList)
@@ -96,6 +97,19 @@ class APIClient7Shifts(object):
     def list(self, endpoint, **urlopen_kw):
         """Implements the List method for 7shifts API objects.
         Pass a list of parameters using the `fields` kwarg."""
+        fields = {}
+        for key, val in urlopen_kw.get('fields', {}).items():
+            #print('item: {}'.format(key))
+            if isinstance(val, bool):
+                if val:
+                    fields[key] = 1
+                else:
+                    fields[key] = 0
+            elif isinstance(val, datetime.datetime):
+                fields[key] = dates.from_datetime(val)
+            else:
+                fields[key] = val
+        urlopen_kw['fields'] = fields
         return self._request(
             'GET', endpoint, **urlopen_kw)
 

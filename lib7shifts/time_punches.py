@@ -42,11 +42,6 @@ def list_punches(client, **kwargs):
     details.
     """
     api_params = {}
-    for name, val in kwargs.items():
-        if isinstance(val, datetime.datetime):
-            api_params[name] = dates.from_datetime(val)
-        else:
-            api_params[name] = val
     response = client.list(ENDPOINT, fields=api_params)
     return TimePunchList.from_api_data(response['data'], client=client)
 
