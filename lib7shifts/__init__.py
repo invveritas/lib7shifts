@@ -13,6 +13,7 @@ import this module to use the full suite, eg::
 import logging
 import certifi
 import urllib3
+import datetime
 import json
 try:
     from urllib import urlencode
