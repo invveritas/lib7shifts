@@ -144,13 +144,13 @@ class TimePunch(base.APIObject):
     @property
     def created(self):
         "Returns a :class:`datetime.datetime` object for punch creation time"
-        return dates.to_datetime(self._get_punch_attr('created'))
+        return dates.to_datetime(self._api_data('time_punch')['created'])
 
     @property
     def modified(self):
         """Returns a :class:`datetime.datetime` object corresponding to the
         last time this punch was modified"""
-        return dates.to_datetime(self._get_punch_attr('modified'))
+        return dates.to_datetime(self._api_data('time_punch')['modified'])
 
     @property
     def breaks(self):
