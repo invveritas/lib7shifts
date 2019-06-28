@@ -5,7 +5,7 @@ See https://www.7shifts.com/partner-api#toc-locations for details.
 """
 from . import base
 
-ENDPOINT = '/locations'
+ENDPOINT = '/v1/locations'
 
 def get_location(client, location_id):
     """Implments the 'Read' method for 7shifts locations. Returns a

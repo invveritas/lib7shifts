@@ -13,7 +13,9 @@ class DateTime7Shifts(datetime.datetime):
 def to_datetime(date_string):
     """Given a date string in API format, return a :class:`datetime.datetime`
     object corresponding to the date and time"""
-    return DateTime7Shifts.strptime(date_string, DEFAULT_DATETIME_FORMAT)
+    date = DateTime7Shifts.strptime(
+        date_string, DEFAULT_DATETIME_FORMAT)
+    return date.replace(tzinfo=datetime.timezone.utc)
 
 def from_datetime(dt_obj):
     """Converts the datetime object back into a text representation compatible

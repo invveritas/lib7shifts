@@ -7,7 +7,7 @@ operations.
 from . import base
 from . import dates
 
-ENDPOINT = '/roles'
+ENDPOINT = '/v1/roles'
 
 def get_role(client, role_id):
     """Implements the 'Read' method from the 7shifts API for roles.

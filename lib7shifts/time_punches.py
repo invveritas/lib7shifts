@@ -6,7 +6,7 @@ import datetime
 from . import base
 from . import dates
 
-ENDPOINT = '/time_punches'
+ENDPOINT = '/v1/time_punches'
 
 def get_punch(client, punch_id):
     """Implements the 'Read' operation from the 7shifts API. Supply a punch ID.

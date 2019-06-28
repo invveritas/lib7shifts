@@ -4,7 +4,7 @@ Library for representing 7shifts Users.
 from . import base
 from . import exceptions
 
-ENDPOINT = '/users'
+ENDPOINT = '/v1/users'
 
 def get_user(client, user_id):
     """Implements the 'Read' API in 7Shifts for the given `user_id`.
@@ -60,6 +60,12 @@ class User(base.APIObject):
             return True
         return False
 
+    def is_admin(self):
+        "Returns True if the user_type_id is set to 2 (admin)"
+        if self.user_type_id == 2:
+            return True
+        return False
+
     def is_manager(self):
         "Returns True if the user_type_id is set to 3 (manager)"
         if self.user_type_id == 3:
@@ -93,6 +99,12 @@ class User(base.APIObject):
             self._company = companies.get_company(
                 self.company_id, client=self.client)
         return self._company
+
+    def get_wages(self):
+        """Returns a dictionary of wage data for the user. This method utilizes
+        an undocumented API endpoint - the same one used in the 7shifts UI."""
+        return self.client.read(
+            "/v1/user/{:d}".format(self.id), "wages")['data']
 
 class UserList(list):
     """

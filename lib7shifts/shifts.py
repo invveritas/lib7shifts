@@ -8,7 +8,7 @@ import datetime
 from . import base
 from . import dates
 
-ENDPOINT = '/shifts'
+ENDPOINT = '/v1/shifts'
 SHIFT_STATUS_MAP = {0: "No status", 1: "Sick", 2: "No-show", 3: "Late"}
 
 def get_shift(client, shift_id):

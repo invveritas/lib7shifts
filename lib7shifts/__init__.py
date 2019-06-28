@@ -70,7 +70,7 @@ class APIClient7Shifts(object):
         """Perform Reads against 7shifts API for the specified endpoint/ID.
         Pass parameters using the `fields` kwarg."""
         return self._request(
-            'GET', "{}/{:d}".format(endpoint, item_id), **urlopen_kw)
+            'GET', "{}/{}".format(endpoint, item_id), **urlopen_kw)
 
     def create(self, endpoint, **urlopen_kw):
         """Performs Create operations in the 7shifts API

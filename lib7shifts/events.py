@@ -8,7 +8,7 @@ from . import base
 from . import dates
 from . import locations
 
-ENDPOINT = '/events'
+ENDPOINT = '/v1/events'
 
 def create_event(client, **kwargs):
     """Creates an event as defined in the API documentation. Supports

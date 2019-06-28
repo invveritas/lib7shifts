@@ -6,7 +6,7 @@ supported operations.
 """
 from . import base
 
-ENDPOINT = '/departments'
+ENDPOINT = '/v1/departments'
 
 def get_department(client, department_id):
     """Implements the 'Read' method from the 7shifts API for departments.

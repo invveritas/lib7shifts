@@ -5,7 +5,7 @@ See https://www.7shifts.com/partner-api#toc-companies for more details.
 """
 from . import base
 
-ENDPOINT = '/companies'
+ENDPOINT = '/v1/companies'
 
 def get_company(client, company_id):
     """Implements the 'Read' API in 7Shifts for Companies.
