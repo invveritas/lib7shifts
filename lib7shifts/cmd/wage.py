@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """usage:
-  7shifts2sqlite department list [options]
-  7shifts2sqlite department sync [options] [--] <sqlite_db>
-  7shifts2sqlite department init_schema [options] [--] <sqlite_db>
+  7shifts2sqlite wage list [options]
+  7shifts2sqlite wage sync [options] [--] <sqlite_db>
+  7shifts2sqlite wage init_schema [options] [--] <sqlite_db>
 
   -h --help         show this screen
   -v --version      show version information
@@ -15,24 +15,26 @@ API_KEY_7SHIFTS.
 """
 from docopt import docopt
 import sys, os, os.path
-import datetime
 import sqlite3
 import logging
 import lib7shifts
 from .util import filter_fields
 
-DB_NAME = 'departments'
+DB_NAME = 'wages'
 DB_TBL_SCHEMA = """CREATE TABLE IF NOT EXISTS {} (
-    id PRIMARY KEY UNIQUE,
-    name NOT NULL,
-    location_id,
-    created,
-    modified
-) WITHOUT ROWID
+    category NOT NULL,
+    user_id INTEGER NOT NULL,
+    role_id INTEGER NOT NULL,
+    effective_date,
+    wage_type NOT NULL,
+    wage_cents NOT NULL,
+    PRIMARY KEY (category, user_id, role_id)
+)
 """.format(DB_NAME)
 DB_INSERT_QUERY = """INSERT OR REPLACE INTO {}
-    VALUES(?, ?, ?, ?, ?)""".format(DB_NAME)
-INSERT_FIELDS = ('id', 'name', 'location_id', 'created', 'modified')
+    VALUES(?, ?, ?, ?, ?, ?)""".format(DB_NAME)
+INSERT_FIELDS = ('category', 'user_id', 'role_id', 'effective_date',
+                 'wage_type', 'wage_cents')
 _DB_HNDL = None
 _CRSR = None
 
@@ -54,11 +56,11 @@ def db_init_schema(args):
     print(tbl_schema, file=sys.stderr)
     cursor(args).execute(tbl_schema)
 
-def db_sync(departments, args):
+def db_sync(wages, args):
     print("syncing database", file=sys.stderr)
     cursor(args).executemany(
         DB_INSERT_QUERY, filter_fields(
-            departments, INSERT_FIELDS, print_rows=args.get('--debug', False)))
+            wages, INSERT_FIELDS, print_rows=args.get('--debug', False)))
     if args.get('--dry-run', False):
         db_handle(args).rollback()
     else:
@@ -70,9 +72,43 @@ def get_api_key():
     except KeyError:
         raise AssertionError("API_KEY_7SHIFTS not found in environment")
 
-def get_departments():
+def build_list_user_args(args, limit=500, offset=0):
+    list_args = {}
+    list_args['limit'] = limit
+    list_args['offset'] = offset
+    return list_args
+
+def get_users(args, page_size=200):
     client = lib7shifts.get_client(get_api_key())
-    return lib7shifts.list_departments(client)
+    offset = 0
+    results = 0
+    while True:
+        if args.get('--debug', False):
+            print("getting up to {} users at offset {}".format(page_size, offset),
+                  file=sys.stderr)
+        users = lib7shifts.list_users(
+            client,
+            **build_list_user_args(args, limit=page_size, offset=offset))
+        if users:
+            for user in users:
+                if user.user_type_id == 2:
+                    # skip admins, they cause errors on the wages API
+                    continue
+                results += 1
+                yield user
+            offset += len(users)
+            continue
+        break
+    if args.get('--debug', False):
+        print("returned {} results".format(results), file=sys.stderr)
+
+def get_wages(args, page_size=200):
+    for user in get_users(args, page_size):
+        for category, data in user.get_wages().items():
+            for wage in data:
+                if wage['role_id']:
+                    wage['category'] = category
+                    yield wage
 
 def main(**args):
     logging.basicConfig()
@@ -82,10 +118,10 @@ def main(**args):
     else:
         logging.getLogger('lib7shifts').setLevel(logging.INFO)
     if args.get('list', False):
-        for department in get_departments():
-            print(department)
+        for wage in get_wages(args):
+            print(wage)
     elif args.get('sync', False):
-        db_sync(get_departments(), args)
+        db_sync(get_wages(args), args)
     elif args.get('init_schema', False):
         db_init_schema(args)
     else:

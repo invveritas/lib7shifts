@@ -8,6 +8,8 @@
   -v --version      show version information
   --dry-run         does not commit data to database, but goes through inserts
   -d --debug        enable debug logging (low-level)
+  --only-inactive   only fetch inactive users
+  --only-active     only fetch active users
 
 You must provide the 7shifts API key with an environment variable called
 API_KEY_7SHIFTS.
@@ -18,6 +20,7 @@ import sys, os, os.path
 import sqlite3
 import logging
 import lib7shifts
+from .util import filter_fields
 
 DB_NAME = 'users'
 DB_TBL_SCHEMA = """CREATE TABLE IF NOT EXISTS {} (
@@ -56,23 +59,11 @@ def db_init_schema(args):
     print(tbl_schema, file=sys.stderr)
     cursor(args).execute(tbl_schema)
 
-def filter_user_fields(users, output_fields):
-    """Given a list of user dics from 7shifts, yield a tuple per user with the
-    data we need to insert"""
-    for user in users:
-        row = list()
-        for field in output_fields:
-            val = getattr(user, field)
-            if isinstance(val, datetime.datetime):
-                val = val.__str__()
-            row.append(val)
-        print(row, file=sys.stdout)
-        yield row
-
 def db_sync(users, args):
     print("syncing database", file=sys.stderr)
     cursor(args).executemany(
-        DB_INSERT_QUERY, filter_user_fields(users, INSERT_FIELDS))
+        DB_INSERT_QUERY, filter_fields(
+            users, INSERT_FIELDS, print_rows=args.get('--debug', False)))
     if args.get('--dry-run', False):
         db_handle(args).rollback()
     else:
@@ -84,9 +75,36 @@ def get_api_key():
     except KeyError:
         raise AssertionError("API_KEY_7SHIFTS not found in environment")
 
-def get_users():
+def build_list_user_args(args, limit=500, offset=0):
+    list_args = {}
+    if args.get('--only-inactive'):
+        list_args['active'] = 0
+    if args.get('--only-active'):
+        list_args['active'] = 1
+    list_args['limit'] = limit
+    list_args['offset'] = offset
+    return list_args
+
+def get_users(args, page_size=200):
     client = lib7shifts.get_client(get_api_key())
-    return lib7shifts.list_users(client)
+    offset = 0
+    results = 0
+    while True:
+        if args.get('--debug', False):
+            print("getting up to {} users at offset {}".format(page_size, offset),
+                  file=sys.stderr)
+        users = lib7shifts.list_users(
+            client,
+            **build_list_user_args(args, limit=page_size, offset=offset))
+        if users:
+            for user in users:
+                results += 1
+                yield user
+            offset += len(users)
+            continue
+        break
+    if args.get('--debug', False):
+        print("returned {} results".format(results), file=sys.stderr)
 
 def main(**args):
     logging.basicConfig()
@@ -96,10 +114,10 @@ def main(**args):
     else:
         logging.getLogger('lib7shifts').setLevel(logging.INFO)
     if args.get('list', False):
-        for user in get_users():
+        for user in get_users(args):
             print(user)
     elif args.get('sync', False):
-        db_sync(get_users(), args)
+        db_sync(get_users(args), args)
     elif args.get('init_schema', False):
         db_init_schema(args)
     else:

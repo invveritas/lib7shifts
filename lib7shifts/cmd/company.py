@@ -19,6 +19,7 @@ import datetime
 import sqlite3
 import logging
 import lib7shifts
+from .util import filter_fields
 
 DB_NAME = 'companies'
 DB_TBL_SCHEMA = """CREATE TABLE IF NOT EXISTS {} (
@@ -52,23 +53,11 @@ def db_init_schema(args):
     print(tbl_schema, file=sys.stderr)
     cursor(args).execute(tbl_schema)
 
-def filter_company_fields(companies, output_fields):
-    """Given a list of company dics from 7shifts, yield a tuple per company with the
-    data we need to insert"""
-    for company in companies:
-        row = list()
-        for field in output_fields:
-            val = getattr(company, field)
-            if isinstance(val, datetime.datetime):
-                val = val.__str__()
-            row.append(val)
-        print(row, file=sys.stdout)
-        yield row
-
 def db_sync(companies, args):
     print("syncing database", file=sys.stderr)
     cursor(args).executemany(
-        DB_INSERT_QUERY, filter_company_fields(companies, INSERT_FIELDS))
+        DB_INSERT_QUERY, filter_fields(
+            companies, INSERT_FIELDS, print_rows=args.get('--debug', False)))
     if args.get('--dry-run', False):
         db_handle(args).rollback()
     else:

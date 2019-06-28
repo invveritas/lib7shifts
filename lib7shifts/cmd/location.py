@@ -19,6 +19,7 @@ import datetime
 import sqlite3
 import logging
 import lib7shifts
+from .util import filter_fields
 
 DB_NAME = 'locations'
 DB_TBL_SCHEMA = """CREATE TABLE IF NOT EXISTS {} (
@@ -54,23 +55,11 @@ def db_init_schema(args):
     print(tbl_schema, file=sys.stderr)
     cursor(args).execute(tbl_schema)
 
-def filter_location_fields(locations, output_fields):
-    """Given a list of location dicts from 7shifts, yield a tuple per location with the
-    data we need to insert"""
-    for location in locations:
-        row = list()
-        for field in output_fields:
-            val = getattr(location, field)
-            if isinstance(val, datetime.datetime):
-                val = val.__str__()
-            row.append(val)
-        print(row, file=sys.stdout)
-        yield row
-
 def db_sync(locations, args):
     print("syncing database", file=sys.stderr)
     cursor(args).executemany(
-        DB_INSERT_QUERY, filter_location_fields(locations, INSERT_FIELDS))
+        DB_INSERT_QUERY, filter_fields(
+            locations, INSERT_FIELDS, print_rows=args.get('--debug', False)))
     if args.get('--dry-run', False):
         db_handle(args).rollback()
     else:

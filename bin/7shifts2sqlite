@@ -15,6 +15,7 @@ commands:
     shift       list and sync shift data to sqlite
     time_punch  list and sync time punch data to sqlite
     user        list and sync user data to sqlite
+    wage        list and sync user wages to sqlite
     help        show this screen
 
 For most commands, you will also need to provide the 7shifts API key with an
@@ -36,11 +37,13 @@ def main(**args):
         logging.getLogger('lib7shifts').setLevel(logging.INFO)
     cmd = args['<command>']
     argv = [cmd] + args['<args>']
-    if cmd in 'company department location role shift time_punch user'.split():
+    if cmd in 'company department location role shift time_punch user wage'.split():
         module = importlib.import_module('lib7shifts.cmd.{}'.format(cmd))
         module.main(**docopt(module.__doc__, argv=argv))
-    if cmd == 'help':
+    elif cmd == 'help':
         print(__doc__)
+    else:
+        print("command {} is not valid".format(cmd))
     return 0
 
 if __name__ == '__main__':

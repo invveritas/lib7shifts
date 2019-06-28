@@ -26,6 +26,7 @@ import datetime
 import sqlite3
 import logging
 import lib7shifts
+from .util import filter_fields
 
 DB_NAME = 'shifts'
 DB_TBL_SCHEMA = """CREATE TABLE IF NOT EXISTS {} (
@@ -79,22 +80,14 @@ def db_init_schema(args):
     print(tbl_schema, file=sys.stderr)
     cursor(args).execute(tbl_schema)
 
-def filter_shift_fields(shifts, output_fields):
-    """Given a list of shift dicts from 7shifts, yield a tuple per shift with the
-    data we need to insert"""
-    for shift in shifts:
-        row = list()
-        for field in output_fields:
-            val = getattr(shift, field)
-            if isinstance(val, datetime.datetime):
-                val = val.__str__()
-            row.append(val)
-        #print(row, file=sys.stdout)
-        yield row
-
 def db_query(args, shifts):
     cursor(args).executemany(
-        DB_INSERT_QUERY, filter_shift_fields(shifts, INSERT_FIELDS))
+        DB_INSERT_QUERY, filter_fields(
+            shifts, INSERT_FIELDS, print_rows=args.get('--debug', False)))
+    if args.get('--dry-run', False):
+        db_handle(args).rollback()
+    else:
+        db_handle(args).commit()
 
 def db_sync(args, per_pass=100):
     print("syncing database", file=sys.stderr)

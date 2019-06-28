@@ -19,6 +19,7 @@ import datetime
 import sqlite3
 import logging
 import lib7shifts
+from .util import filter_fields
 
 DB_NAME = 'roles'
 DB_TBL_SCHEMA = """CREATE TABLE IF NOT EXISTS {} (
@@ -55,23 +56,11 @@ def db_init_schema(args):
     print(tbl_schema, file=sys.stderr)
     cursor(args).execute(tbl_schema)
 
-def filter_role_fields(roles, output_fields):
-    """Given a list of role dicts from 7shifts, yield a tuple per role with the
-    data we need to insert"""
-    for role in roles:
-        row = list()
-        for field in output_fields:
-            val = getattr(role, field)
-            if isinstance(val, datetime.datetime):
-                val = val.__str__()
-            row.append(val)
-        print(row, file=sys.stdout)
-        yield row
-
 def db_sync(roles, args):
     print("syncing database", file=sys.stderr)
     cursor(args).executemany(
-        DB_INSERT_QUERY, filter_role_fields(roles, INSERT_FIELDS))
+        DB_INSERT_QUERY, filter_fields(
+            roles, INSERT_FIELDS, print_rows=args.get('--debug', False)))
     if args.get('--dry-run', False):
         db_handle(args).rollback()
     else:

@@ -25,6 +25,7 @@ import datetime
 import sqlite3
 import logging
 import lib7shifts
+from .util import filter_fields
 
 DB_NAME = 'time_punches'
 DB_TBL_SCHEMA = """CREATE TABLE IF NOT EXISTS {} (
@@ -72,28 +73,14 @@ def db_init_schema(args):
     print(tbl_schema, file=sys.stderr)
     cursor(args).execute(tbl_schema)
 
-def filter_time_punch_fields(time_punches, output_fields):
-    """Given a list of time_punch dicts from 7shifts, yield a tuple per time_punch with the
-    data we need to insert"""
-    for time_punch in time_punches:
-        row = list()
-        for field in output_fields:
-            val = getattr(time_punch, field)
-            if isinstance(val, datetime.datetime):
-                val = val.__str__()
-            row.append(val)
-        #print(row, file=sys.stdout)
-        yield row
-
 def db_query(args, time_punches):
-    try:
-        cursor(args).executemany(
-            DB_INSERT_QUERY, filter_time_punch_fields(time_punches, INSERT_FIELDS))
-    except Exception as err:
-        print("exception: {}".format(err), file=sys.stderr)
-        for row in filter_time_punch_fields(time_punches, INSERT_FIELDS):
-            print(row, file=sys.stderr)
-        sys.exit(1)
+    cursor(args).executemany(
+        DB_INSERT_QUERY, filter_fields(
+            time_punches, INSERT_FIELDS, print_rows=args.get('--debug', False)))
+    if args.get('--dry-run', False):
+        db_handle(args).rollback()
+    else:
+        db_handle(args).commit()
 
 def db_sync(args, per_pass=100):
     print("syncing database", file=sys.stderr)
