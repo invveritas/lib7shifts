@@ -51,7 +51,7 @@ def db_init_schema(args):
     tbl_schema = DB_TBL_SCHEMA
     print('initializing db schema', file=sys.stderr)
     print(tbl_schema, file=sys.stderr)
-    cursor(args).execute(tbl_schema)
+    return cursor(args).execute(tbl_schema)
 
 def db_sync(companies, args):
     print("syncing database", file=sys.stderr)

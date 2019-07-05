@@ -1,1 +1,3 @@
-sqlite3
+urllib3
+docopt
+certifi

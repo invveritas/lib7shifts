@@ -29,7 +29,6 @@ import logging
 import importlib
 
 def main(**args):
-    #print(args)
     logging.basicConfig()
     if args['--debug']:
         logging.getLogger().setLevel(logging.DEBUG)
