@@ -11,28 +11,27 @@ import this module to use the full suite, eg::
 
 """
 import logging
-import certifi
-import urllib3
 import datetime
 import json
+import certifi
+import urllib3
 try:
     from urllib import urlencode
 except ImportError:
     from urllib.parse import urlencode
-from . import exceptions
-from . import dates
-
-from .events import (create_event, get_event, update_event, delete_event,
-                     list_events, Event, EventList)
-from .departments import (get_department, list_departments,
-                          Department, DepartmentList)
-from .roles import (get_role, list_roles, Role, RoleList)
-from .users import (get_user, list_users, User)
-from .companies import (get_company, list_companies, Company)
-from .shifts import (get_shift, list_shifts, Shift, ShiftList)
-from .locations import (get_location, list_locations, Location, LocationList)
 from .time_punches import (get_punch, list_punches, TimePunch, TimePunchList,
                            TimePunchBreak, TimePunchBreakList)
+from .locations import (get_location, list_locations, Location, LocationList)
+from .shifts import (get_shift, list_shifts, Shift, ShiftList)
+from .companies import (get_company, list_companies, Company)
+from .users import (get_user, list_users, User)
+from .roles import (get_role, list_roles, Role, RoleList)
+from .departments import (get_department, list_departments,
+                          Department, DepartmentList)
+from .events import (create_event, get_event, update_event, delete_event,
+                     list_events, Event, EventList)
+from . import dates
+from . import exceptions
 
 
 def get_client(api_key, **kwargs):
@@ -158,7 +157,6 @@ class APIClient7Shifts(object):
         call to :attr:`_connection_pool` generates a new pool to work with.
         Useful in cases where authentication timeouts occur.
         """
-        # TODO: locking around this kind of thing for thread safety
         self.__connection_pool = None
 
     def _create_pool(self):
@@ -173,7 +171,6 @@ class APIClient7Shifts(object):
             keep_alive=self.KEEP_ALIVE,
             user_agent=self.USER_AGENT,
             basic_auth='{}:'.format(self.api_key))
-        # TODO: locking around this kind of thing for thread safety
         self.__connection_pool = urllib3.connectionpool.connection_from_url(
             self.BASE_URL, cert_reqs='CERT_REQUIRED', ca_certs=certifi.where(),
             headers=headers)
