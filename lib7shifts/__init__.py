@@ -34,9 +34,11 @@ from .locations import (get_location, list_locations, Location, LocationList)
 from .time_punches import (get_punch, list_punches, TimePunch, TimePunchList,
                            TimePunchBreak, TimePunchBreakList)
 
+
 def get_client(api_key, **kwargs):
     "Returns an :class:`APIClient7Shifts`"
     return APIClient7Shifts(api_key=api_key, **kwargs)
+
 
 class APIClient7Shifts(object):
     """
@@ -88,7 +90,8 @@ class APIClient7Shifts(object):
         """
         body = json.dumps(urlopen_kw.pop('body', dict()))
         return self._request(
-            'PUT', "{}/{:d}".format(endpoint, item_id), body=body, **urlopen_kw)
+            'PUT', "{}/{:d}".format(endpoint, item_id),
+            body=body, **urlopen_kw)
 
     def delete(self, endpoint, item_id, **urlopen_kw):
         "Delete the item at the given endpoint with the given ID"
@@ -100,7 +103,7 @@ class APIClient7Shifts(object):
         Pass a list of parameters using the `fields` kwarg."""
         fields = {}
         for key, val in urlopen_kw.get('fields', {}).items():
-            #print('item: {}'.format(key))
+            # print('item: {}'.format(key))
             if isinstance(val, bool):
                 if val:
                     fields[key] = 1
@@ -179,7 +182,8 @@ class APIClient7Shifts(object):
         """
         In the case of a normal response, deserializes the response from
         JSON back into dictionary form and returns it. In case of a response
-        code of 300 or higher, raises an :class:`exceptions.APIError` exception.
+        code of 300 or higher, raises an :class:`exceptions.APIError`
+        exception.
         Note that if you are seeing weirdness in the API response data, look
         at the :attr:`ENCODING` attribute for this class.
         """
