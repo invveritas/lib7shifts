@@ -20,7 +20,6 @@ setup(
     install_requires=[],
     scripts=[
         'bin/7shifts2sqlite',
-        'bin/7shifts2futrli',
     ],
     test_suite="nose.collector",
 )
