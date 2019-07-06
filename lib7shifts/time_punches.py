@@ -91,7 +91,7 @@ class TimePunch(base.APIObject):
         """
         if self._shift is None:
             from . import shifts
-            self._shift = shifts.get_shift(self.shift_id, client=self.client)
+            self._shift = shifts.get_shift(self.client, self.shift_id)
         return self._shift
 
     def get_user(self):
@@ -100,7 +100,7 @@ class TimePunch(base.APIObject):
         user data from a :func:`read` operation."""
         if self._user is None:
             from . import users
-            self._user = users.get_user(self.user_id, client=self.client)
+            self._user = users.get_user(self.client, self.user_id)
         return self._user
 
     def get_role(self):
@@ -109,7 +109,7 @@ class TimePunch(base.APIObject):
         An API fetch will be used to fulfill this call."""
         if self._role is None:
             from . import roles
-            self._role = roles.get_role(self.role_id, client=self.client)
+            self._role = roles.get_role(self.client, self.role_id)
         return self._role
 
     def get_location(self):
@@ -120,7 +120,7 @@ class TimePunch(base.APIObject):
         if self._location is None:
             from . import locations
             self._location = locations.get_location(
-                self.location_id, client=self.client)
+                self.client, self.location_id)
         return self._location
 
     def get_department(self):
@@ -131,7 +131,7 @@ class TimePunch(base.APIObject):
         if self._department is None:
             from . import departments
             self._department = departments.get_department(
-                self.department_id, client=self.client)
+                self.client, self.department_id)
         return self._department
 
     @property
@@ -210,7 +210,7 @@ class TimePunchBreak(base.APIObject):
         class for the user"""
         if self._user is None:
             from . import users
-            self._user = users.get_user(self.user_id, client=self.client)
+            self._user = users.get_user(self.client, self.user_id)
         return self._user
 
     @property
