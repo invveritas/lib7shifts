@@ -1,12 +1,12 @@
 """
 This library is used for all time-punch related code and objects.
 """
-import datetime
-#import cachetools
 from . import base
 from . import dates
+from . import exceptions
 
 ENDPOINT = '/v1/time_punches'
+
 
 def get_punch(client, punch_id):
     """Implements the 'Read' operation from the 7shifts API. Supply a punch ID.
@@ -18,6 +18,7 @@ def get_punch(client, punch_id):
         return TimePunch(**response['data'], client=client)
     except KeyError:
         raise exceptions.EntityNotFoundError('Time Punch', punch_id)
+
 
 def list_punches(client, **kwargs):
     """Implements the 'List' method for Time Punches as outlined in the API,
@@ -44,6 +45,7 @@ def list_punches(client, **kwargs):
     response = client.list(ENDPOINT, fields=kwargs)
     return TimePunchList.from_api_data(response['data'], client=client)
 
+
 class TimePunch(base.APIObject):
     """
     An object representing a time punch, including break data. Requires the
@@ -63,6 +65,7 @@ class TimePunch(base.APIObject):
     so subsequent calls to retrieve the same location will not keep hitting
     the 7shifts API.
     """
+
     def __init__(self, **kwargs):
         super(TimePunch, self).__init__(**kwargs)
         self._breaks = None
@@ -139,6 +142,10 @@ class TimePunch(base.APIObject):
     @property
     def clocked_out(self):
         "Returns a :class:`datetime.datetime` object for the punch-out time"
+        if self._api_data('time_punch')['clocked_out'] \
+                == '0000-00-00 00:00:00':
+            # currently logged in shift, return now
+            return dates.DateTime7Shifts.now()
         return dates.to_datetime(self._api_data('time_punch')['clocked_out'])
 
     @property
@@ -161,6 +168,7 @@ class TimePunch(base.APIObject):
                 self._api_data('time_punch_break'))
         return self._breaks
 
+
 class TimePunchList(list):
     """
     Object representing a list of TimePunch objects, including vivifying
@@ -177,8 +185,10 @@ class TimePunchList(list):
             obj_list.append(TimePunch(**item, client=client))
         return cls(obj_list)
 
+
 class TimePunchBreak(base.APIObject):
     "Represent a Time Punch Break"
+
     def __init__(self, **kwargs):
         super(TimePunchBreak, self).__init__(**kwargs)
         self._user = None
@@ -210,6 +220,7 @@ class TimePunchBreak(base.APIObject):
     @property
     def modified(self):
         raise NotImplementedError
+
 
 class TimePunchBreakList(list):
     """
