@@ -14,7 +14,9 @@ API_KEY_7SHIFTS.
 
 """
 from docopt import docopt
-import sys, os, os.path
+import sys
+import os
+import os.path
 import datetime
 import sqlite3
 import logging
@@ -36,11 +38,13 @@ INSERT_FIELDS = ('id', 'name', 'location_id', 'created', 'modified')
 _DB_HNDL = None
 _CRSR = None
 
+
 def db_handle(args):
     global _DB_HNDL
     if _DB_HNDL is None:
         _DB_HNDL = sqlite3.connect(args.get('<sqlite_db>'))
     return _DB_HNDL
+
 
 def cursor(args):
     global _CRSR
@@ -48,14 +52,17 @@ def cursor(args):
         _CRSR = db_handle(args).cursor()
     return _CRSR
 
+
 def db_init_schema(args):
     tbl_schema = DB_TBL_SCHEMA
     print('initializing db schema', file=sys.stderr)
     print(tbl_schema, file=sys.stderr)
     cursor(args).execute(tbl_schema)
 
-def db_sync(departments, args):
+
+def db_sync(args):
     print("syncing database", file=sys.stderr)
+    departments = get_departments()
     cursor(args).executemany(
         DB_INSERT_QUERY, filter_fields(
             departments, INSERT_FIELDS, print_rows=args.get('--debug', False)))
@@ -64,15 +71,18 @@ def db_sync(departments, args):
     else:
         db_handle(args).commit()
 
+
 def get_api_key():
     try:
         return os.environ['API_KEY_7SHIFTS']
     except KeyError:
         raise AssertionError("API_KEY_7SHIFTS not found in environment")
 
+
 def get_departments():
     client = lib7shifts.get_client(get_api_key())
     return lib7shifts.list_departments(client)
+
 
 def main(**args):
     logging.basicConfig()
@@ -85,7 +95,7 @@ def main(**args):
         for department in get_departments():
             print(department)
     elif args.get('sync', False):
-        db_sync(get_departments(), args)
+        db_sync(args)
     elif args.get('init_schema', False):
         db_init_schema(args)
     else:
@@ -93,6 +103,7 @@ def main(**args):
         print(args, file=sys.stderr)
         return 1
     return 0
+
 
 if __name__ == '__main__':
     args = docopt(__doc__, version='7shifts2sqlite 0.1')

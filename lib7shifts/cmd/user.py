@@ -16,7 +16,9 @@ API_KEY_7SHIFTS.
 
 """
 from docopt import docopt
-import sys, os, os.path
+import sys
+import os
+import os.path
 import sqlite3
 import logging
 import lib7shifts
@@ -41,11 +43,13 @@ INSERT_FIELDS = ('id', 'firstname', 'lastname', 'email', 'payroll_id',
 _DB_HNDL = None
 _CRSR = None
 
+
 def db_handle(args):
     global _DB_HNDL
     if _DB_HNDL is None:
         _DB_HNDL = sqlite3.connect(args.get('<sqlite_db>'))
     return _DB_HNDL
+
 
 def cursor(args):
     global _CRSR
@@ -53,14 +57,17 @@ def cursor(args):
         _CRSR = db_handle(args).cursor()
     return _CRSR
 
+
 def db_init_schema(args):
     tbl_schema = DB_TBL_SCHEMA
     print('initializing db schema', file=sys.stderr)
     print(tbl_schema, file=sys.stderr)
     cursor(args).execute(tbl_schema)
 
-def db_sync(users, args):
+
+def db_sync(args):
     print("syncing database", file=sys.stderr)
+    users = get_users()
     cursor(args).executemany(
         DB_INSERT_QUERY, filter_fields(
             users, INSERT_FIELDS, print_rows=args.get('--debug', False)))
@@ -69,11 +76,13 @@ def db_sync(users, args):
     else:
         db_handle(args).commit()
 
+
 def get_api_key():
     try:
         return os.environ['API_KEY_7SHIFTS']
     except KeyError:
         raise AssertionError("API_KEY_7SHIFTS not found in environment")
+
 
 def build_list_user_args(args, limit=500, offset=0):
     list_args = {}
@@ -84,6 +93,7 @@ def build_list_user_args(args, limit=500, offset=0):
     list_args['limit'] = limit
     list_args['offset'] = offset
     return list_args
+
 
 def get_users(args, page_size=200):
     client = lib7shifts.get_client(get_api_key())
@@ -106,6 +116,7 @@ def get_users(args, page_size=200):
     if args.get('--debug', False):
         print("returned {} results".format(results), file=sys.stderr)
 
+
 def main(**args):
     logging.basicConfig()
     if args['--debug']:
@@ -117,7 +128,7 @@ def main(**args):
         for user in get_users(args):
             print(user)
     elif args.get('sync', False):
-        db_sync(get_users(args), args)
+        db_sync(args)
     elif args.get('init_schema', False):
         db_init_schema(args)
     else:
@@ -125,6 +136,7 @@ def main(**args):
         print(args, file=sys.stderr)
         return 1
     return 0
+
 
 if __name__ == '__main__':
     args = docopt(__doc__, version='7shifts2sqlite 0.1')

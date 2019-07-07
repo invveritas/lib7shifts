@@ -21,7 +21,9 @@ API_KEY_7SHIFTS.
 
 """
 from docopt import docopt
-import sys, os, os.path
+import sys
+import os
+import os.path
 import datetime
 import sqlite3
 import logging
@@ -62,11 +64,13 @@ INSERT_FIELDS = ('id', 'start', 'end', 'location_id', 'user_id', 'role_id',
 _DB_HNDL = None
 _CRSR = None
 
+
 def db_handle(args):
     global _DB_HNDL
     if _DB_HNDL is None:
         _DB_HNDL = sqlite3.connect(args.get('<sqlite_db>'))
     return _DB_HNDL
+
 
 def cursor(args):
     global _CRSR
@@ -74,11 +78,13 @@ def cursor(args):
         _CRSR = db_handle(args).cursor()
     return _CRSR
 
+
 def db_init_schema(args):
     tbl_schema = DB_TBL_SCHEMA
     print('initializing db schema', file=sys.stderr)
     print(tbl_schema, file=sys.stderr)
     cursor(args).execute(tbl_schema)
+
 
 def db_query(args, shifts):
     cursor(args).executemany(
@@ -89,25 +95,33 @@ def db_query(args, shifts):
     else:
         db_handle(args).commit()
 
+
 def db_sync(args, per_pass=100):
-    print("syncing database", file=sys.stderr)
+    if args.get('--debug', False):
+        print("syncing database with args {}".format(args), file=sys.stderr)
     shifts = []
+    shift_count = 0
     for shift in get_shifts(args):
         shifts.append(shift)
+        shift_count += 1
         if len(shifts) == per_pass:
             db_query(args, shifts)
             shifts = []
     db_query(args, shifts)
+    if args.get('--debug', False):
+        print("synced {:d} shifts".format(shift_count), file=sys.stderr)
     if args.get('--dry-run', False):
         db_handle(args).rollback()
     else:
         db_handle(args).commit()
+
 
 def get_api_key():
     try:
         return os.environ['API_KEY_7SHIFTS']
     except KeyError:
         raise AssertionError("API_KEY_7SHIFTS not found in environment")
+
 
 def build_list_shift_args(args, limit=500, offset=0):
     list_args = {}
@@ -122,9 +136,12 @@ def build_list_shift_args(args, limit=500, offset=0):
     list_args['deleted'] = args.get('--deleted')
     list_args['draft'] = args.get('--draft')
     list_args['open'] = args.get('--open')
-    list_args['limit'] = limit # 500 seems to be the API limit
+    list_args['limit'] = limit  # 500 seems to be the API limit
     list_args['offset'] = offset
+    if args.get('--debug', False):
+        print("list_shift args: {}".format(list_args), file=sys.stderr)
     return list_args
+
 
 def get_shifts(args, page_size=500):
     "Page size: how many results to fetch from the API at a time"
@@ -148,13 +165,8 @@ def get_shifts(args, page_size=500):
     if args.get('--debug', False):
         print("returned {} results".format(results), file=sys.stderr)
 
+
 def main(**args):
-    logging.basicConfig()
-    if args['--debug']:
-        logging.getLogger().setLevel(logging.DEBUG)
-        print("arguments: {}".format(args), file=sys.stderr)
-    else:
-        logging.getLogger('lib7shifts').setLevel(logging.INFO)
     if args.get('list', False):
         for shift in get_shifts(args):
             print(shift)
@@ -168,6 +180,13 @@ def main(**args):
         return 1
     return 0
 
+
 if __name__ == '__main__':
     args = docopt(__doc__, version='7shifts2sqlite 0.1')
+    logging.basicConfig()
+    if args['--debug']:
+        logging.getLogger().setLevel(logging.DEBUG)
+        print("arguments: {}".format(args), file=sys.stderr)
+    else:
+        logging.getLogger('lib7shifts').setLevel(logging.INFO)
     sys.exit(main(**args))

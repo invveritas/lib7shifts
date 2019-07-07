@@ -14,7 +14,9 @@ API_KEY_7SHIFTS.
 
 """
 from docopt import docopt
-import sys, os, os.path
+import sys
+import os
+import os.path
 import datetime
 import sqlite3
 import logging
@@ -35,11 +37,13 @@ INSERT_FIELDS = ('id', 'name', 'created', 'modified')
 _DB_HNDL = None
 _CRSR = None
 
+
 def db_handle(args):
     global _DB_HNDL
     if _DB_HNDL is None:
         _DB_HNDL = sqlite3.connect(args.get('<sqlite_db>'))
     return _DB_HNDL
+
 
 def cursor(args):
     global _CRSR
@@ -47,14 +51,17 @@ def cursor(args):
         _CRSR = db_handle(args).cursor()
     return _CRSR
 
+
 def db_init_schema(args):
     tbl_schema = DB_TBL_SCHEMA
     print('initializing db schema', file=sys.stderr)
     print(tbl_schema, file=sys.stderr)
     return cursor(args).execute(tbl_schema)
 
-def db_sync(companies, args):
+
+def db_sync(args):
     print("syncing database", file=sys.stderr)
+    companies = get_companies()
     cursor(args).executemany(
         DB_INSERT_QUERY, filter_fields(
             companies, INSERT_FIELDS, print_rows=args.get('--debug', False)))
@@ -63,28 +70,25 @@ def db_sync(companies, args):
     else:
         db_handle(args).commit()
 
+
 def get_api_key():
     try:
         return os.environ['API_KEY_7SHIFTS']
     except KeyError:
         raise AssertionError("API_KEY_7SHIFTS not found in environment")
 
+
 def get_companies():
     client = lib7shifts.get_client(get_api_key())
     return lib7shifts.list_companies(client)
 
+
 def main(**args):
-    logging.basicConfig()
-    if args['--debug']:
-        logging.getLogger().setLevel(logging.DEBUG)
-        print("arguments: {}".format(args), file=sys.stderr)
-    else:
-        logging.getLogger('lib7shifts').setLevel(logging.INFO)
     if args.get('list', False):
         for company in get_companies():
             print(company)
     elif args.get('sync', False):
-        db_sync(get_companies(), args)
+        db_sync(args)
     elif args.get('init_schema', False):
         db_init_schema(args)
     else:
@@ -93,6 +97,13 @@ def main(**args):
         return 1
     return 0
 
+
 if __name__ == '__main__':
     args = docopt(__doc__, version='7shifts2sqlite 0.1')
+    logging.basicConfig()
+    if args['--debug']:
+        logging.getLogger().setLevel(logging.DEBUG)
+        print("arguments: {}".format(args), file=sys.stderr)
+    else:
+        logging.getLogger('lib7shifts').setLevel(logging.INFO)
     sys.exit(main(**args))

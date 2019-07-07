@@ -29,11 +29,6 @@ import logging
 import importlib
 
 def main(**args):
-    logging.basicConfig()
-    if args['--debug']:
-        logging.getLogger().setLevel(logging.DEBUG)
-    else:
-        logging.getLogger('lib7shifts').setLevel(logging.INFO)
     cmd = args['<command>']
     argv = [cmd] + args['<args>']
     if cmd in 'company department location role shift time_punch user wage'.split():
@@ -47,4 +42,9 @@ def main(**args):
 
 if __name__ == '__main__':
     args = docopt(__doc__, version='7shifts2sqlite 0.1', options_first=True)
+    logging.basicConfig()
+    if args['--debug']:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger('lib7shifts').setLevel(logging.INFO)
     sys.exit(main(**args))
