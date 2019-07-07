@@ -64,7 +64,7 @@ def db_init_schema(args):
 
 def db_sync(args):
     print("syncing database", file=sys.stderr)
-    wages = get_wages()
+    wages = get_wages(args)
     cursor(args).executemany(
         DB_INSERT_QUERY, filter_fields(
             wages, INSERT_FIELDS, print_rows=args.get('--debug', False)))
