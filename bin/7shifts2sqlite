@@ -28,6 +28,7 @@ import sys
 import logging
 import importlib
 
+
 def main(**args):
     cmd = args['<command>']
     argv = [cmd] + args['<args>']
@@ -39,6 +40,7 @@ def main(**args):
     else:
         print("command {} is not valid".format(cmd))
     return 0
+
 
 if __name__ == '__main__':
     args = docopt(__doc__, version='7shifts2sqlite 0.1', options_first=True)
