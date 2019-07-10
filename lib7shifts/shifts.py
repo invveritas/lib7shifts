@@ -11,6 +11,7 @@ from . import dates
 ENDPOINT = '/v1/shifts'
 SHIFT_STATUS_MAP = {0: "No status", 1: "Sick", 2: "No-show", 3: "Late"}
 
+
 def get_shift(client, shift_id):
     """Implements the 'Read' method from the 7shifts API for shifts.
     Returns a :class:`Shift` object."""
@@ -19,6 +20,7 @@ def get_shift(client, shift_id):
         return Shift(**response['data']['shift'], client=client)
     except KeyError:
         raise exceptions.EntityNotFoundError('Shift', shift_id)
+
 
 def list_shifts(client, **kwargs):
     """Implements the 'List' operation for 7shifts Shifts, returning the
@@ -47,6 +49,7 @@ def list_shifts(client, **kwargs):
     response = client.list(ENDPOINT, fields=kwargs)
     return ShiftList.from_api_data(response['data'], client=client)
 
+
 class Shift(base.APIObject):
     """
     Represents a 7shifts Shift object, with all the same attributes as the
@@ -63,12 +66,18 @@ class Shift(base.APIObject):
     @property
     def start(self):
         "Returns a :class:`datetime.datetime` object for the start time"
-        return dates.to_datetime(self._api_data('start'))
+        # for some reason, shifts are returned in the local timezone
+        # in the API (perhapse the timezone of the location)
+        return dates.to_datetime(
+            self._api_data('start'), dates.get_local_tz())
 
     @property
     def end(self):
         "Returns a :class:`datetime.datetime` object for the end time"
-        return dates.to_datetime(self._api_data('end'))
+        # for some reason, shifts are returned in the local timezone
+        # in the API (perhapse the timezone of the location)
+        return dates.to_datetime(
+            self._api_data('end'), dates.get_local_tz())
 
     def shift_flag_status(self):
         """Returns the status of the shift flag in text format"""
@@ -129,6 +138,7 @@ class Shift(base.APIObject):
             self._department = departments.get_department(
                 self.department_id, client=self.client)
         return self._department
+
 
 class ShiftList(list):
     """
