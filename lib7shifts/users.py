@@ -6,6 +6,7 @@ from . import exceptions
 
 ENDPOINT = '/v1/users'
 
+
 def get_user(client, user_id):
     """Implements the 'Read' API in 7Shifts for the given `user_id`.
     Returns a :class:`User` object, or raises
@@ -15,6 +16,7 @@ def get_user(client, user_id):
         return User(**response['data']['user'], client=client)
     except KeyError:
         raise exceptions.EntityNotFoundError('User', user_id)
+
 
 def list_users(client, **kwargs):
     """Implements the 'List' operation for 7shifts users, returning all the
@@ -33,11 +35,13 @@ def list_users(client, **kwargs):
     response = client.list(ENDPOINT, fields=kwargs)
     return UserList.from_api_data(response['data'], client=client)
 
+
 class User(base.APIObject):
     """
     Represents a User from the 7shifts API, with all the same attributes
     returned by the API..
     """
+
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
         self._company = None
@@ -105,6 +109,7 @@ class User(base.APIObject):
         an undocumented API endpoint - the same one used in the 7shifts UI."""
         return self.client.read(
             "/v1/user/{:d}".format(self.id), "wages")['data']
+
 
 class UserList(list):
     """
