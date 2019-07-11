@@ -1,7 +1,7 @@
 lib7shifts
 ==========
 
-A library for interacting with the 7shifts REST API in Python3.
+A library/CLI for interacting with the 7shifts REST API in Python3.
 
 Before using this library, it's a good idea to be familiar with 7shifts,
 itself, and read the API documentation, here:
@@ -17,8 +17,8 @@ Here's a quick example of the code usage::
 
 Object Model
 ------------
-This package includes modules for each of the objects represented by the 7shifts
-API, including:
+This package includes modules for each of the objects represented by the
+7shifts API, including:
 
 - Company
 - Location
@@ -143,7 +143,8 @@ ID number::
 
 Shifts
 ------
-Shifts have two different read-based methods - ``get_shift`` and ``list_shifts``.
+Shifts have two different read-based methods - ``get_shift`` and
+``list_shifts``.
 The *get* method is designed to find a shift based on a specified ID,
 whereas the *list* method finds all the shifts matching specified criteria. For
 example, here's how we find all the shifts for the user with ID 1000::
@@ -169,3 +170,37 @@ don't directly support brackets in the parameter names, you need to either
 set them up as keys in a dictionary and pass in as ``**kwargs``, or you need
 to use the syntax shown here to expand a dictionary into function parameters
 inline.
+
+Command-Line Interface
+----------------------
+
+This package includes a command-line tool for dumping data from 7shifts,
+either to the screen or into an SQLite database, for further manipulation or
+archival purposes. In the case of this package's author, the SQLite database
+is queried against with complex joins to create weekly reports for managers
+to report on the effectiveness of their supervisors, such as ensuring that
+staff are punching in/out near shift boundaries, not generating overtime, etc.
+
+The CLI command is named ``7shifts`` and supports list-type operations for
+all of the object types listed earlier. See ``7shifts --help`` for a list of
+supported objects and switches. And use ``7shifts [object] --help`` for a
+list of options specific to the object type being queried.
+
+You will need to set up an environment variable called
+``API_KEY_7SHIFTS``, and populate it with your 7shifts API key, ensuring that
+the environment variable is present in the scope where you run these commands
+(generally, run ``export API_KEY_7SHIFTS=YOURAPIKEY`` in the shell environment
+where you run this command).
+
+Here's an example of dumping all the shifts for a specific department::
+
+    7shifts shift list --start=2019-07-01 --dept-id=93813
+
+In addition to the normal objects supported by the documented API, the 7shifts
+CLI also supports dumping sales and labour reports, which leverages an
+undocumented API endpoint (your mileage may vary)::
+
+    7shifts daily_reports list --from=2019-06-01 --to=2019-06-30 \
+        --include-unapproved --location-id=12345
+
+Hint: To get a list of your location ID's, use ``7shifts location list``.
