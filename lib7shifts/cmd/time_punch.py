@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """usage:
-  7time_punches2sqlite time_punch list [options]
-  7time_punches2sqlite time_punch sync [options] [--] <sqlite_db>
-  7time_punches2sqlite time_punch init_schema [options] [--] <sqlite_db>
+  7shifts time_punch list [options]
+  7shifts time_punch sync [options] [--] <sqlite_db>
+  7shifts time_punch init_schema [options] [--] <sqlite_db>
 
   -h --help         show this screen
   -v --version      show version information
@@ -20,7 +20,9 @@ API_KEY_7time_punches.
 
 """
 from docopt import docopt
-import sys, os, os.path
+import sys
+import os
+import os.path
 import datetime
 import sqlite3
 import logging
@@ -55,11 +57,13 @@ INSERT_FIELDS = ('id', 'shift_id', 'user_id', 'location_id', 'role_id',
 _DB_HNDL = None
 _CRSR = None
 
+
 def db_handle(args):
     global _DB_HNDL
     if _DB_HNDL is None:
         _DB_HNDL = sqlite3.connect(args.get('<sqlite_db>'))
     return _DB_HNDL
+
 
 def cursor(args):
     global _CRSR
@@ -67,11 +71,13 @@ def cursor(args):
         _CRSR = db_handle(args).cursor()
     return _CRSR
 
+
 def db_init_schema(args):
     tbl_schema = DB_TBL_SCHEMA
     print('initializing db schema', file=sys.stderr)
     print(tbl_schema, file=sys.stderr)
     cursor(args).execute(tbl_schema)
+
 
 def db_query(args, time_punches):
     cursor(args).executemany(
@@ -81,6 +87,7 @@ def db_query(args, time_punches):
         db_handle(args).rollback()
     else:
         db_handle(args).commit()
+
 
 def db_sync(args, per_pass=100):
     print("syncing database", file=sys.stderr)
@@ -96,11 +103,13 @@ def db_sync(args, per_pass=100):
     else:
         db_handle(args).commit()
 
+
 def get_api_key():
     try:
         return os.environ['API_KEY_7SHIFTS']
     except KeyError:
         raise AssertionError("API_KEY_7SHIFTS not found in environment")
+
 
 def build_list_time_punch_args(args, limit=500, offset=0):
     list_args = {}
@@ -112,9 +121,10 @@ def build_list_time_punch_args(args, limit=500, offset=0):
         list_args['location_id'] = args.get('--location-id')
     if args.get('--dept-id'):
         list_args['department_id'] = args.get('--dept-id')
-    list_args['limit'] = limit # 500 seems to be the API limit
+    list_args['limit'] = limit  # 500 seems to be the API limit
     list_args['offset'] = offset
     return list_args
+
 
 def get_time_punches(args, page_size=500):
     "Page size: how many results to fetch from the API at a time"
@@ -145,6 +155,7 @@ def get_time_punches(args, page_size=500):
     if args.get('--debug', False):
         print("returned {} results".format(results), file=sys.stderr)
 
+
 def main(**args):
     logging.basicConfig()
     if args['--debug']:
@@ -164,6 +175,7 @@ def main(**args):
         print(args, file=sys.stderr)
         return 1
     return 0
+
 
 if __name__ == '__main__':
     args = docopt(__doc__, version='7shifts2sqlite 0.1')

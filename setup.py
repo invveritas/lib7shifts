@@ -19,7 +19,7 @@ setup(
     packages=find_packages(),
     install_requires=[],
     scripts=[
-        'bin/7shifts2sqlite',
+        'bin/7shifts',
     ],
     test_suite="nose.collector",
 )

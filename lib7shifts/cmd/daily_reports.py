@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """usage:
-  7shifts2sqlite daily_reports list [options]
-  7shifts2sqlite daily_reports sync [options] [--] <sqlite_db>
-  7shifts2sqlite daily_reports init_schema [options] [--] <sqlite_db>
+  7shifts daily_reports list [options]
+  7shifts daily_reports sync [options] [--] <sqlite_db>
+  7shifts daily_reports init_schema [options] [--] <sqlite_db>
 
   -h --help         show this screen
   -v --version      show version information
@@ -134,7 +134,7 @@ def main(**args):
 
 
 if __name__ == '__main__':
-    args = docopt(__doc__, version='7shifts2sqlite 0.1')
+    args = docopt(__doc__, version='7shifts 0.1')
     logging.basicConfig()
     if args['--debug']:
         logging.getLogger().setLevel(logging.DEBUG)

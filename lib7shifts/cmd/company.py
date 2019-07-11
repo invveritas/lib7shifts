@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """usage:
-  7shifts2sqlite company list [options]
-  7shifts2sqlite company sync [options] [--] <sqlite_db>
-  7shifts2sqlite company init_schema [options] [--] <sqlite_db>
+  7shifts company list [options]
+  7shifts company sync [options] [--] <sqlite_db>
+  7shifts company init_schema [options] [--] <sqlite_db>
 
   -h --help         show this screen
   -v --version      show version information
