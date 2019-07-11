@@ -5,8 +5,10 @@ See https://www.7shifts.com/partner-api#toc-departments for details about
 supported operations.
 """
 from . import base
+from . import exceptions
 
 ENDPOINT = '/v1/departments'
+
 
 def get_department(client, department_id):
     """Implements the 'Read' method from the 7shifts API for departments.
@@ -16,6 +18,7 @@ def get_department(client, department_id):
         return Department(**response['data']['department'], client=client)
     except KeyError:
         raise exceptions.EntityNotFoundError('Department', department_id)
+
 
 def list_departments(client, **kwargs):
     """Implements the 'List' operation for 7shifts departments, returning the
@@ -34,12 +37,14 @@ def list_departments(client, **kwargs):
     response = client.list(ENDPOINT, fields=kwargs)
     return DepartmentList.from_api_data(response['data'], client=client)
 
+
 class Department(base.APIObject):
     """
     Represents a 7shifts Shift object, with all the same attributes as the
     Shift object defined in the API documentation.
     """
     pass
+
 
 class DepartmentList(list):
     """

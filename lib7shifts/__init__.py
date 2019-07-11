@@ -30,6 +30,7 @@ from .departments import (get_department, list_departments,
                           Department, DepartmentList)
 from .events import (create_event, get_event, update_event, delete_event,
                      list_events, Event, EventList)
+from .daily_reports import get_sales_and_labor
 from . import dates
 from . import exceptions
 
@@ -67,11 +68,17 @@ class APIClient7Shifts(object):
         self.rate_limit_lock = kwargs.pop('rate_limit_lock', None)
         self.__connection_pool = None
 
+    def get_endpoint(self, endpoint, **urlopen_kw):
+        """Directly make a GET call against `endpoint` with the defined
+        urlopen_kw args"""
+        return self._request(
+            'GET', endpoint, **urlopen_kw)
+
     def read(self, endpoint, item_id, **urlopen_kw):
         """Perform Reads against 7shifts API for the specified endpoint/ID.
         Pass parameters using the `fields` kwarg."""
-        return self._request(
-            'GET', "{}/{}".format(endpoint, item_id), **urlopen_kw)
+        return self.get_endpoint(
+            "{}/{}".format(endpoint, item_id), **urlopen_kw)
 
     def create(self, endpoint, **urlopen_kw):
         """Performs Create operations in the 7shifts API

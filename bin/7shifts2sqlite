@@ -16,6 +16,7 @@ commands:
     time_punch  list and sync time punch data to sqlite
     user        list and sync user data to sqlite
     wage        list and sync user wages to sqlite
+    daily_reports  list and sync sales and labour reports
     help        show this screen
 
 For most commands, you will also need to provide the 7shifts API key with an
@@ -28,11 +29,15 @@ import sys
 import logging
 import importlib
 
+VALID_CMDS = (
+    'company', 'department', 'location', 'role', 'shift',
+    'time_punch', 'user', 'wage', 'daily_reports')
+
 
 def main(**args):
     cmd = args['<command>']
     argv = [cmd] + args['<args>']
-    if cmd in 'company department location role shift time_punch user wage'.split():
+    if cmd in VALID_CMDS:
         module = importlib.import_module('lib7shifts.cmd.{}'.format(cmd))
         module.main(**docopt(module.__doc__, argv=argv))
     elif cmd == 'help':

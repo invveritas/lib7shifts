@@ -4,8 +4,10 @@ API methods and objects related to the 7Shifts Location API.
 See https://www.7shifts.com/partner-api#toc-locations for details.
 """
 from . import base
+from . import exceptions
 
 ENDPOINT = '/v1/locations'
+
 
 def get_location(client, location_id):
     """Implments the 'Read' method for 7shifts locations. Returns a
@@ -15,6 +17,7 @@ def get_location(client, location_id):
         return Location(**response['data']['location'], client=client)
     except KeyError:
         raise exceptions.EntityNotFoundError('Location', location_id)
+
 
 def list_locations(client, **kwargs):
     """
@@ -32,12 +35,14 @@ def list_locations(client, **kwargs):
     response = client.list(ENDPOINT, fields=kwargs)
     return LocationList.from_api_data(response['data'], client=client)
 
+
 class Location(base.APIObject):
     """
     Represents a 7shifts Location object, providing all the same attributes
     documented in the Read API for Locations.
     """
     pass
+
 
 class LocationList(list):
     """

@@ -6,8 +6,10 @@ operations.
 """
 from . import base
 from . import dates
+from . import exceptions
 
 ENDPOINT = '/v1/roles'
+
 
 def get_role(client, role_id):
     """Implements the 'Read' method from the 7shifts API for roles.
@@ -17,6 +19,7 @@ def get_role(client, role_id):
         return Role(**response['data']['role'], client=client)
     except KeyError:
         raise exceptions.EntityNotFoundError('Role', role_id)
+
 
 def list_roles(client, **kwargs):
     """Implements the 'List' operation for 7shifts roles, returning all the
@@ -35,12 +38,14 @@ def list_roles(client, **kwargs):
     response = client.list(ENDPOINT, fields=kwargs)
     return RoleList.from_api_data(response['data'], client=client)
 
+
 class Role(base.APIObject):
     """
     Represents a 7shifts Role object, with all the same attributes as the
     Role object defined in the API documentation.
     """
     pass
+
 
 class RoleList(list):
     """

@@ -7,8 +7,10 @@ import datetime
 from . import base
 from . import dates
 from . import locations
+from . import exceptions
 
 ENDPOINT = '/v1/events'
+
 
 def create_event(client, **kwargs):
     """Creates an event as defined in the API documentation. Supports
@@ -33,6 +35,7 @@ def create_event(client, **kwargs):
     response = client.create(ENDPOINT, body=body)
     return response['data']['event']['id']
 
+
 def get_event(client, event_id):
     """Implements the 'Read' method from the 7shifts API for events.
     Returns a :class:`Event` object."""
@@ -41,6 +44,7 @@ def get_event(client, event_id):
         return Event(**response['data']['event'], client=client)
     except KeyError:
         raise exceptions.EntityNotFoundError('Event', event_id)
+
 
 def update_event(client, event_id, **kwargs):
     """
@@ -59,6 +63,7 @@ def update_event(client, event_id, **kwargs):
     response = client.update(ENDPOINT, event_id, body={'event': kwargs})
     return response['data']['event']['id']
 
+
 def delete_event(client, event_id):
     """
     Implements the Delete API method for Events.
@@ -67,6 +72,7 @@ def delete_event(client, event_id):
     client.
     """
     client.delete(ENDPOINT, event_id)
+
 
 def list_events(client, **kwargs):
     """
@@ -87,6 +93,7 @@ def list_events(client, **kwargs):
     """
     response = client.list(ENDPOINT, fields=kwargs)
     return EventList.from_api_data(response['data'], client=client)
+
 
 class Event(base.APIObject):
     """
@@ -114,6 +121,7 @@ class Event(base.APIObject):
         "Returns an array of :class:`lib7shifts.locations.Location` objects"
         return locations.LocationList.from_id_list(
             self.location, client=self.client)
+
 
 class EventList(list):
     """
