@@ -104,11 +104,11 @@ class Sync7Shifts2Sqlite(object):
     def sync_to_database(self, rows):
         """Given a list of dictionary rows, sync them to the database"
         """
-        self.log.info("syncing to database")
+        self.log.info("starting database record sync operation")
         cursor = self.db_handle.cursor()
         cursor.executemany(
             self.get_insert_query(), self.filter_fields(rows))
-        self.log.info("Inserted %d records", cursor.rowcount)
+        self.log.info("Inserted/updated %d records", cursor.rowcount)
         if self.dry_run:
             self.db_handle.rollback()
         else:
