@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """usage:
   7shifts role list [options]
-  7shifts role sync [options] [--] <sqlite_db>
-  7shifts role init_schema [options] [--] <sqlite_db>
+  7shifts role db sync [options] [--] <sqlite_db>
+  7shifts role db init [options] [--] <sqlite_db>
 
   -h --help         show this screen
   -v --version      show version information
@@ -13,100 +13,50 @@ You must provide the 7shifts API key with an environment variable called
 API_KEY_7SHIFTS.
 
 """
-from docopt import docopt
-import sys
-import os
-import os.path
-import datetime
-import sqlite3
-import logging
 import lib7shifts
-from .util import filter_fields
-
-DB_NAME = 'roles'
-DB_TBL_SCHEMA = """CREATE TABLE IF NOT EXISTS {} (
-    id PRIMARY KEY UNIQUE,
-    name NOT NULL,
-    department_id NOT NULL,
-    location_id NOT NULL,
-    created,
-    modified
-) WITHOUT ROWID
-""".format(DB_NAME)
-DB_INSERT_QUERY = """INSERT OR REPLACE INTO {}
-    VALUES(?, ?, ?, ?, ?, ?)""".format(DB_NAME)
-INSERT_FIELDS = ('id', 'name', 'department_id', 'location_id',
-                 'created', 'modified')
-_DB_HNDL = None
-_CRSR = None
+from .common import get_7shifts_client, print_api_data, Sync7Shifts2Sqlite
 
 
-def db_handle(args):
-    global _DB_HNDL
-    if _DB_HNDL is None:
-        _DB_HNDL = sqlite3.connect(args.get('<sqlite_db>'))
-    return _DB_HNDL
+class SyncRoles2Sqlite(Sync7Shifts2Sqlite):
+    """Extend :class:`Sync7Shifts2Sqlite` to work for 7shifts roles."""
 
-
-def cursor(args):
-    global _CRSR
-    if _CRSR is None:
-        _CRSR = db_handle(args).cursor()
-    return _CRSR
-
-
-def db_init_schema(args):
-    tbl_schema = DB_TBL_SCHEMA
-    print('initializing db schema', file=sys.stderr)
-    print(tbl_schema, file=sys.stderr)
-    cursor(args).execute(tbl_schema)
-
-
-def db_sync(args):
-    print("syncing database", file=sys.stderr)
-    roles = get_roles()
-    cursor(args).executemany(
-        DB_INSERT_QUERY, filter_fields(
-            roles, INSERT_FIELDS, print_rows=args.get('--debug', False)))
-    if args.get('--dry-run', False):
-        db_handle(args).rollback()
-    else:
-        db_handle(args).commit()
-
-
-def get_api_key():
-    try:
-        return os.environ['API_KEY_7SHIFTS']
-    except KeyError:
-        raise AssertionError("API_KEY_7SHIFTS not found in environment")
+    table_name = 'roles'
+    table_schema = """CREATE TABLE IF NOT EXISTS {table_name} (
+            id PRIMARY KEY UNIQUE,
+            name NOT NULL,
+            department_id NOT NULL,
+            location_id NOT NULL,
+            created,
+            modified
+        ) WITHOUT ROWID"""
+    insert_query = """INSERT OR REPLACE INTO {table_name}
+        VALUES(?, ?, ?, ?, ?, ?)"""
+    insert_fields = (
+        'id', 'name', 'department_id', 'location_id',
+        'created', 'modified')
 
 
 def get_roles():
-    client = lib7shifts.get_client(get_api_key())
+    """Return a list of :class:`lib7shifts.role.Role` objects from
+    the API"""
+    client = get_7shifts_client()
     return lib7shifts.list_roles(client)
 
 
 def main(**args):
-    logging.basicConfig()
-    if args['--debug']:
-        logging.getLogger().setLevel(logging.DEBUG)
-        print("arguments: {}".format(args), file=sys.stderr)
-    else:
-        logging.getLogger('lib7shifts').setLevel(logging.INFO)
+    """Run the cli-specified action (list, sync, init)"""
     if args.get('list', False):
-        for role in get_roles():
-            print(role)
-    elif args.get('sync', False):
-        db_sync(args)
-    elif args.get('init_schema', False):
-        db_init_schema(args)
+        print_api_data(get_roles())
+    elif args.get('db', False):
+        sync_db = SyncRoles2Sqlite(
+            args.get('<sqlite_db>'),
+            dry_run=args.get('--dry-run'))
+        if args.get('sync', False):
+            sync_db.sync_to_database(get_roles())
+        elif args.get('init', False):
+            sync_db.init_db_schema()
+        else:
+            raise RuntimeError("no valid db action specified")
     else:
-        print("no valid action in args", file=sys.stderr)
-        print(args, file=sys.stderr)
-        return 1
+        raise RuntimeError("no valid action in args")
     return 0
-
-
-if __name__ == '__main__':
-    args = docopt(__doc__, version='7shifts 0.1')
-    sys.exit(main(**args))

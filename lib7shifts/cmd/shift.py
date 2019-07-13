@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """usage:
   7shifts shift list [options]
-  7shifts shift sync [options] [--] <sqlite_db>
-  7shifts shift init_schema [options] [--] <sqlite_db>
+  7shifts shift db sync [options] [--] <sqlite_db>
+  7shifts shift db init [options] [--] <sqlite_db>
 
   -h --help         show this screen
   -v --version      show version information
@@ -20,110 +20,52 @@ You must provide the 7shifts API key with an environment variable called
 API_KEY_7SHIFTS.
 
 """
-from docopt import docopt
-import sys
-import os
-import os.path
-import datetime
-import sqlite3
 import logging
 import lib7shifts
-from .util import filter_fields
+from .common import get_7shifts_client, print_api_data, Sync7Shifts2Sqlite
 
-DB_NAME = 'shifts'
-DB_TBL_SCHEMA = """CREATE TABLE IF NOT EXISTS {} (
-    id PRIMARY KEY UNIQUE,
-    start NOT NULL,
-    end NOT NULL,
-    location_id NOT NULL,
-    user_id NOT NULL,
-    role_id NOT NULL,
-    department_id NOT NULL,
-    close,
-    notes,
-    hourly_wage,
-    open,
-    notified,
-    open_offer_type,
-    draft,
-    deleted,
-    bd,
-    status,
-    late_minutes,
-    created,
-    modified
-) WITHOUT ROWID
-""".format(DB_NAME)
-DB_INSERT_QUERY = """INSERT OR REPLACE INTO {}
-    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-           ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""".format(DB_NAME)
-INSERT_FIELDS = ('id', 'start', 'end', 'location_id', 'user_id', 'role_id',
-                 'department_id', 'close', 'notes', 'hourly_wage', 'open',
-                 'notified', 'open_offer_type', 'draft', 'deleted', 'bd',
-                 'status', 'late_minutes', 'created', 'modified')
-_DB_HNDL = None
-_CRSR = None
+LOG = logging.getLogger('lib7shifts.7shifts.shift')
 
 
-def db_handle(args):
-    global _DB_HNDL
-    if _DB_HNDL is None:
-        _DB_HNDL = sqlite3.connect(args.get('<sqlite_db>'))
-    return _DB_HNDL
+class SyncShifts2Sqlite(Sync7Shifts2Sqlite):
+    """Extend :class:`Sync7Shifts2Sqlite` to work for 7shifts shifts."""
 
-
-def cursor(args):
-    global _CRSR
-    if _CRSR is None:
-        _CRSR = db_handle(args).cursor()
-    return _CRSR
-
-
-def db_init_schema(args):
-    tbl_schema = DB_TBL_SCHEMA
-    print('initializing db schema', file=sys.stderr)
-    print(tbl_schema, file=sys.stderr)
-    cursor(args).execute(tbl_schema)
-
-
-def db_query(args, shifts):
-    cursor(args).executemany(
-        DB_INSERT_QUERY, filter_fields(
-            shifts, INSERT_FIELDS, print_rows=args.get('--debug', False)))
-    if args.get('--dry-run', False):
-        db_handle(args).rollback()
-    else:
-        db_handle(args).commit()
-
-
-def db_sync(args, per_pass=100):
-    if args.get('--debug', False):
-        print("syncing database with args {}".format(args), file=sys.stderr)
-    shifts = []
-    shift_count = 0
-    for shift in get_shifts(args):
-        shifts.append(shift)
-        shift_count += 1
-        if len(shifts) == per_pass:
-            db_query(args, shifts)
-            shifts = []
-    db_query(args, shifts)
-    if args.get('--debug', False):
-        print("synced {:d} shifts".format(shift_count), file=sys.stderr)
-    if args.get('--dry-run', False):
-        db_handle(args).rollback()
-    else:
-        db_handle(args).commit()
-
-
-def get_api_key():
-    try:
-        return os.environ['API_KEY_7SHIFTS']
-    except KeyError:
-        raise AssertionError("API_KEY_7SHIFTS not found in environment")
+    table_name = 'shifts'
+    table_schema = """CREATE TABLE IF NOT EXISTS {table_name} (
+            id PRIMARY KEY UNIQUE,
+            start NOT NULL,
+            end NOT NULL,
+            location_id NOT NULL,
+            user_id NOT NULL,
+            role_id NOT NULL,
+            department_id NOT NULL,
+            close,
+            notes,
+            hourly_wage,
+            open,
+            notified,
+            open_offer_type,
+            draft,
+            deleted,
+            bd,
+            status,
+            late_minutes,
+            created,
+            modified
+        ) WITHOUT ROWID"""
+    insert_query = """INSERT OR REPLACE INTO {table_name}
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+    insert_fields = (
+        'id', 'start', 'end', 'location_id', 'user_id', 'role_id',
+        'department_id', 'close', 'notes', 'hourly_wage', 'open',
+        'notified', 'open_offer_type', 'draft', 'deleted', 'bd',
+        'status', 'late_minutes', 'created', 'modified')
 
 
 def build_list_shift_args(args, limit=500, offset=0):
+    """Build a set of arguments to pass to the API based on the user's
+    specified filters"""
     list_args = {}
     if args.get('--start'):
         list_args['start[gte]'] = args.get('--start')
@@ -138,20 +80,19 @@ def build_list_shift_args(args, limit=500, offset=0):
     list_args['open'] = args.get('--open')
     list_args['limit'] = limit  # 500 seems to be the API limit
     list_args['offset'] = offset
-    if args.get('--debug', False):
-        print("list_shift args: {}".format(list_args), file=sys.stderr)
+    LOG.debug("list_shift args: %s", list_args)
     return list_args
 
 
 def get_shifts(args, page_size=500):
     "Page size: how many results to fetch from the API at a time"
-    client = lib7shifts.get_client(get_api_key())
+    client = get_7shifts_client()
     offset = 0
     results = 0
     while True:
-        if args.get('--debug', False):
-            print("getting up to {} shifts at offset {}".format(page_size, offset),
-                  file=sys.stderr)
+        LOG.debug(
+            "getting up to %d shifts at offset %d",
+            page_size, offset)
         shifts = lib7shifts.list_shifts(
             client,
             **build_list_shift_args(args, limit=page_size, offset=offset))
@@ -162,31 +103,23 @@ def get_shifts(args, page_size=500):
             offset += len(shifts)
             continue
         break
-    if args.get('--debug', False):
-        print("returned {} results".format(results), file=sys.stderr)
+    LOG.debug("returned %s shifts", results)
 
 
 def main(**args):
+    """Run the cli-specified action (list, sync, init)"""
     if args.get('list', False):
-        for shift in get_shifts(args):
-            print(shift)
-    elif args.get('sync', False):
-        db_sync(args)
-    elif args.get('init_schema', False):
-        db_init_schema(args)
+        print_api_data(get_shifts(args))
+    elif args.get('db', False):
+        sync_db = SyncShifts2Sqlite(
+            args.get('<sqlite_db>'),
+            dry_run=args.get('--dry-run'))
+        if args.get('sync', False):
+            sync_db.sync_to_database(get_shifts(args))
+        elif args.get('init', False):
+            sync_db.init_db_schema()
+        else:
+            raise RuntimeError("no valid db action specified")
     else:
-        print("no valid action in args", file=sys.stderr)
-        print(args, file=sys.stderr)
-        return 1
+        raise RuntimeError("no valid action in args")
     return 0
-
-
-if __name__ == '__main__':
-    args = docopt(__doc__, version='7shifts 0.1')
-    logging.basicConfig()
-    if args['--debug']:
-        logging.getLogger().setLevel(logging.DEBUG)
-        print("arguments: {}".format(args), file=sys.stderr)
-    else:
-        logging.getLogger('lib7shifts').setLevel(logging.INFO)
-    sys.exit(main(**args))

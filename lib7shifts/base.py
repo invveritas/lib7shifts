@@ -2,6 +2,7 @@
 Establish base classes with common design patterns, to be inherited by API
 Objects
 """
+import json
 from . import dates
 
 class APIObject(object):
@@ -74,4 +75,4 @@ class APIObject(object):
         return self._api_data(name)
 
     def __str__(self):
-        return self.__data.__str__()
+        return json.dumps(self.__data)

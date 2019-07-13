@@ -24,10 +24,10 @@ environment variable called API_KEY_7SHIFTS for authenticaton with the 7shifts
 API.
 
 """
-from docopt import docopt
 import sys
 import logging
 import importlib
+from docopt import docopt
 
 VALID_CMDS = (
     'company', 'department', 'location', 'role', 'shift',
@@ -35,6 +35,8 @@ VALID_CMDS = (
 
 
 def main(**args):
+    """Call the `main` method in the appropriate :mod:`lib7shifts.cmd`
+    module based on the subcommand specified by the user."""
     cmd = args['<command>']
     argv = [cmd] + args['<args>']
     if cmd in VALID_CMDS:
@@ -48,10 +50,14 @@ def main(**args):
 
 
 if __name__ == '__main__':
-    args = docopt(__doc__, version='7shifts2sqlite 0.1', options_first=True)
+    ARGS = docopt(__doc__, version='7shifts2sqlite', options_first=True)
     logging.basicConfig()
-    if args['--debug']:
+    if ARGS['--debug'] or \
+            '-d' in ARGS['<args>'] or '--debug' in ARGS['<args>']:
         logging.getLogger().setLevel(logging.DEBUG)
+        logging.getLogger('lib7shifts').setLevel(logging.DEBUG)
     else:
         logging.getLogger('lib7shifts').setLevel(logging.INFO)
-    sys.exit(main(**args))
+    logging.getLogger('lib7shifts.7shifts').debug(
+        'started with args: %s', ARGS)
+    sys.exit(main(**ARGS))

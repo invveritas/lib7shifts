@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """usage:
+  7shifts user get [options] <user_id>
   7shifts user list [options]
-  7shifts user sync [options] [--] <sqlite_db>
-  7shifts user init_schema [options] [--] <sqlite_db>
+  7shifts user db sync [options] [--] <sqlite_db>
+  7shifts user db init [options] [--] <sqlite_db>
 
   -h --help         show this screen
   -v --version      show version information
@@ -15,76 +16,38 @@ You must provide the 7shifts API key with an environment variable called
 API_KEY_7SHIFTS.
 
 """
-from docopt import docopt
-import sys
-import os
-import os.path
-import sqlite3
 import logging
 import lib7shifts
-from .util import filter_fields
+from .common import (
+    get_7shifts_client, print_api_data, print_api_object, Sync7Shifts2Sqlite)
 
-DB_NAME = 'users'
-DB_TBL_SCHEMA = """CREATE TABLE IF NOT EXISTS {} (
-    id PRIMARY KEY UNIQUE,
-    firstname NOT NULL,
-    lastname NOT NULL,
-    email,
-    payroll_id UNIQUE,
-    active NOT NULL,
-    hire_date,
-    company_id NOT NULL
-) WITHOUT ROWID
-""".format(DB_NAME)
-DB_INSERT_QUERY = """INSERT OR REPLACE INTO {}
-    VALUES(?, ?, ?, ?, ?, ?, ?, ?)""".format(DB_NAME)
-INSERT_FIELDS = ('id', 'firstname', 'lastname', 'email', 'payroll_id',
-                 'active', 'hire_date', 'company_id')
-_DB_HNDL = None
-_CRSR = None
+LOG = logging.getLogger('lib7shifts.cli.user')
 
 
-def db_handle(args):
-    global _DB_HNDL
-    if _DB_HNDL is None:
-        _DB_HNDL = sqlite3.connect(args.get('<sqlite_db>'))
-    return _DB_HNDL
+class SyncUsers2Sqlite(Sync7Shifts2Sqlite):
+    """Extend :class:`Sync7Shifts2Sqlite` to work for 7shifts users."""
 
-
-def cursor(args):
-    global _CRSR
-    if _CRSR is None:
-        _CRSR = db_handle(args).cursor()
-    return _CRSR
-
-
-def db_init_schema(args):
-    tbl_schema = DB_TBL_SCHEMA
-    print('initializing db schema', file=sys.stderr)
-    print(tbl_schema, file=sys.stderr)
-    cursor(args).execute(tbl_schema)
-
-
-def db_sync(args):
-    print("syncing database", file=sys.stderr)
-    users = get_users(args)
-    cursor(args).executemany(
-        DB_INSERT_QUERY, filter_fields(
-            users, INSERT_FIELDS, print_rows=args.get('--debug', False)))
-    if args.get('--dry-run', False):
-        db_handle(args).rollback()
-    else:
-        db_handle(args).commit()
-
-
-def get_api_key():
-    try:
-        return os.environ['API_KEY_7SHIFTS']
-    except KeyError:
-        raise AssertionError("API_KEY_7SHIFTS not found in environment")
+    table_name = 'users'
+    table_schema = """CREATE TABLE IF NOT EXISTS {table_name} (
+            id PRIMARY KEY UNIQUE,
+            firstname NOT NULL,
+            lastname NOT NULL,
+            email,
+            payroll_id UNIQUE,
+            active NOT NULL,
+            hire_date,
+            company_id NOT NULL
+        ) WITHOUT ROWID"""
+    insert_query = """INSERT OR REPLACE INTO {table_name}
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?)"""
+    insert_fields = (
+        'id', 'firstname', 'lastname', 'email', 'payroll_id',
+        'active', 'hire_date', 'company_id')
 
 
 def build_list_user_args(args, limit=500, offset=0):
+    """Build a set of parameters to send to the API based on the user-
+    specified arguments"""
     list_args = {}
     if args.get('--only-inactive'):
         list_args['active'] = 0
@@ -95,49 +58,53 @@ def build_list_user_args(args, limit=500, offset=0):
     return list_args
 
 
-def get_users(args, page_size=200):
-    client = lib7shifts.get_client(get_api_key())
+def get_user(user_id):
+    """Returns a single user from the 7shifts API based on the user ID"""
+    client = get_7shifts_client()
+    return lib7shifts.get_user(client, user_id)
+
+
+def get_users(args, page_size=200, skip_admin=False):
+    """Get a list of users from the 7shifts API"""
+    client = get_7shifts_client()
     offset = 0
     results = 0
     while True:
-        if args.get('--debug', False):
-            print("getting up to {} users at offset {}".format(page_size, offset),
-                  file=sys.stderr)
+        LOG.debug("getting up to %d users at offset %d", page_size, offset)
         users = lib7shifts.list_users(
             client,
             **build_list_user_args(args, limit=page_size, offset=offset))
         if users:
             for user in users:
+                if skip_admin and user.is_admin():
+                    LOG.info(
+                        "Skipping admin user %s %s", user.firstname,
+                        user.lastname)
+                    continue
                 results += 1
                 yield user
             offset += len(users)
             continue
         break
-    if args.get('--debug', False):
-        print("returned {} results".format(results), file=sys.stderr)
+    LOG.debug("returned %d users", results)
 
 
 def main(**args):
-    logging.basicConfig()
-    if args['--debug']:
-        logging.getLogger().setLevel(logging.DEBUG)
-        print("arguments: {}".format(args), file=sys.stderr)
-    else:
-        logging.getLogger('lib7shifts').setLevel(logging.INFO)
+    """Run the cli-specified action (list, sync, init)"""
     if args.get('list', False):
-        for user in get_users(args):
-            print(user)
-    elif args.get('sync', False):
-        db_sync(args)
-    elif args.get('init_schema', False):
-        db_init_schema(args)
+        print_api_data(get_users(args))
+    elif args.get('get', False):
+        print_api_object(get_user(args['<user_id>']))
+    elif args.get('db', False):
+        sync_db = SyncUsers2Sqlite(
+            args.get('<sqlite_db>'),
+            dry_run=args.get('--dry-run'))
+        if args.get('sync', False):
+            sync_db.sync_to_database(get_users(args))
+        elif args.get('init', False):
+            sync_db.init_db_schema()
+        else:
+            raise RuntimeError("no valid db action specified")
     else:
-        print("no valid action in args", file=sys.stderr)
-        print(args, file=sys.stderr)
-        return 1
+        raise RuntimeError("no valid action in args")
     return 0
-
-
-if __name__ == '__main__':
-    args = docopt(__doc__, version='7shifts 0.1')
-    sys.exit(main(**args))

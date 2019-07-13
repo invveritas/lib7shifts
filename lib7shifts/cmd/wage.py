@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """usage:
   7shifts wage list [options]
-  7shifts wage sync [options] [--] <sqlite_db>
-  7shifts wage init_schema [options] [--] <sqlite_db>
+  7shifts wage db sync [options] [--] <sqlite_db>
+  7shifts wage db init [options] [--] <sqlite_db>
 
   -h --help         show this screen
   -v --version      show version information
@@ -13,136 +13,65 @@ You must provide the 7shifts API key with an environment variable called
 API_KEY_7SHIFTS.
 
 """
-from docopt import docopt
-import sys
-import os
-import os.path
-import sqlite3
 import logging
-import lib7shifts
-from .util import filter_fields
+from lib7shifts.exceptions import APIError
+from .user import get_users
+from .common import print_api_item, Sync7Shifts2Sqlite
 
-DB_NAME = 'wages'
-DB_TBL_SCHEMA = """CREATE TABLE IF NOT EXISTS {} (
-    category NOT NULL,
-    user_id INTEGER NOT NULL,
-    role_id INTEGER NOT NULL,
-    effective_date,
-    wage_type NOT NULL,
-    wage_cents NOT NULL,
-    PRIMARY KEY (category, user_id, role_id)
-)
-""".format(DB_NAME)
-DB_INSERT_QUERY = """INSERT OR REPLACE INTO {}
-    VALUES(?, ?, ?, ?, ?, ?)""".format(DB_NAME)
-INSERT_FIELDS = ('category', 'user_id', 'role_id', 'effective_date',
-                 'wage_type', 'wage_cents')
-_DB_HNDL = None
-_CRSR = None
+LOG = logging.getLogger('lib7shifts.cli.user')
 
 
-def db_handle(args):
-    global _DB_HNDL
-    if _DB_HNDL is None:
-        _DB_HNDL = sqlite3.connect(args.get('<sqlite_db>'))
-    return _DB_HNDL
+class SyncWages2Sqlite(Sync7Shifts2Sqlite):
+    """Extend :class:`Sync7Shifts2Sqlite` to work for 7shifts wages."""
 
-
-def cursor(args):
-    global _CRSR
-    if _CRSR is None:
-        _CRSR = db_handle(args).cursor()
-    return _CRSR
-
-
-def db_init_schema(args):
-    tbl_schema = DB_TBL_SCHEMA
-    print('initializing db schema', file=sys.stderr)
-    print(tbl_schema, file=sys.stderr)
-    cursor(args).execute(tbl_schema)
-
-
-def db_sync(args):
-    print("syncing database", file=sys.stderr)
-    wages = get_wages(args)
-    cursor(args).executemany(
-        DB_INSERT_QUERY, filter_fields(
-            wages, INSERT_FIELDS, print_rows=args.get('--debug', False)))
-    if args.get('--dry-run', False):
-        db_handle(args).rollback()
-    else:
-        db_handle(args).commit()
-
-
-def get_api_key():
-    try:
-        return os.environ['API_KEY_7SHIFTS']
-    except KeyError:
-        raise AssertionError("API_KEY_7SHIFTS not found in environment")
-
-
-def build_list_user_args(args, limit=500, offset=0):
-    list_args = {}
-    list_args['limit'] = limit
-    list_args['offset'] = offset
-    return list_args
-
-
-def get_users(args, page_size=200):
-    client = lib7shifts.get_client(get_api_key())
-    offset = 0
-    results = 0
-    while True:
-        if args.get('--debug', False):
-            print("getting up to {} users at offset {}".format(page_size, offset),
-                  file=sys.stderr)
-        users = lib7shifts.list_users(
-            client,
-            **build_list_user_args(args, limit=page_size, offset=offset))
-        if users:
-            for user in users:
-                if user.user_type_id == 2:
-                    # skip admins, they cause errors on the wages API
-                    continue
-                results += 1
-                yield user
-            offset += len(users)
-            continue
-        break
-    if args.get('--debug', False):
-        print("returned {} results".format(results), file=sys.stderr)
+    table_name = 'wages'
+    table_schema = """CREATE TABLE IF NOT EXISTS {table_name} (
+            category NOT NULL,
+            user_id INTEGER NOT NULL,
+            role_id INTEGER NOT NULL,
+            effective_date,
+            wage_type NOT NULL,
+            wage_cents NOT NULL,
+            PRIMARY KEY (category, user_id, role_id)
+        ) WITHOUT ROWID"""
+    insert_query = """INSERT OR REPLACE INTO {table_name}
+        VALUES(?, ?, ?, ?, ?, ?)"""
+    insert_fields = (
+        'category', 'user_id', 'role_id', 'effective_date',
+        'wage_type', 'wage_cents')
 
 
 def get_wages(args, page_size=200):
-    for user in get_users(args, page_size):
-        for category, data in user.get_wages().items():
-            for wage in data:
-                if wage['role_id']:
-                    wage['category'] = category
-                    yield wage
+    """First, get a list of users direct from the API, then call the
+    `get_wages()` method for each user and yield it out to the caller"""
+    for user in get_users(args, page_size, skip_admin=True):
+        try:
+            for category, data in user.get_wages().items():
+                for wage in data:
+                    if wage['role_id']:
+                        wage['category'] = category
+                        yield wage
+        except APIError as err:
+            LOG.error(
+                "Caught error while processing user %s %s: %s",
+                user.firstname, user.lastname, err.response)
 
 
 def main(**args):
-    logging.basicConfig()
-    if args['--debug']:
-        logging.getLogger().setLevel(logging.DEBUG)
-        print("arguments: {}".format(args), file=sys.stderr)
-    else:
-        logging.getLogger('lib7shifts').setLevel(logging.INFO)
+    """Run the cli-specified action (list, sync, init_schema)"""
     if args.get('list', False):
         for wage in get_wages(args):
-            print(wage)
-    elif args.get('sync', False):
-        db_sync(args)
-    elif args.get('init_schema', False):
-        db_init_schema(args)
+            print_api_item(wage)
+    elif args.get('db', False):
+        sync_db = SyncWages2Sqlite(
+            args.get('<sqlite_db>'),
+            dry_run=args.get('--dry-run'))
+        if args.get('sync', False):
+            sync_db.sync_to_database(get_wages(args))
+        elif args.get('init', False):
+            sync_db.init_db_schema()
+        else:
+            raise RuntimeError("no valid db action specified")
     else:
-        print("no valid action in args", file=sys.stderr)
-        print(args, file=sys.stderr)
-        return 1
+        raise RuntimeError("no valid action in args")
     return 0
-
-
-if __name__ == '__main__':
-    args = docopt(__doc__, version='7shifts 0.1')
-    sys.exit(main(**args))

@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """usage:
   7shifts time_punch list [options]
-  7shifts time_punch sync [options] [--] <sqlite_db>
-  7shifts time_punch init_schema [options] [--] <sqlite_db>
+  7shifts time_punch db sync [options] [--] <sqlite_db>
+  7shifts time_punch db init [options] [--] <sqlite_db>
 
   -h --help         show this screen
   -v --version      show version information
   -d --debug        enable debug logging (low-level)
   --dry-run         does not commit data to database, but goes through inserts
-  -s --start=DATE   start date (and optional time) to return time_punches for
-  -e --end=DATE     end date (and optional time) to stop returning time_punches after
+  -s --start=DATE   start date to return time_punches for
+  -e --end=DATE     end date to stop returning time punches after
   --unapproved      include unapproved time_punches in results
   --only-unapproved  ONLY include unapproved time_punches in results
   --dept-id=NN      specify a department to narrow down on, by id
@@ -19,99 +19,46 @@ You must provide the 7time_punches API key with an environment variable called
 API_KEY_7time_punches.
 
 """
-from docopt import docopt
-import sys
-import os
-import os.path
-import datetime
-import sqlite3
 import logging
 import lib7shifts
-from .util import filter_fields
+from .common import get_7shifts_client, print_api_data, Sync7Shifts2Sqlite
 
-DB_NAME = 'time_punches'
-DB_TBL_SCHEMA = """CREATE TABLE IF NOT EXISTS {} (
-    id PRIMARY KEY UNIQUE,
-    shift_id,
-    user_id NOT NULL,
-    location_id NOT NULL,
-    role_id NOT NULL,
-    department_id NOT NULL,
-    approved NOT NULL,
-    clocked_in NOT NULL,
-    clocked_out NOT NULL,
-    auto_clocked_out,
-    clocked_in_offline,
-    clocked_out_offline,
-    created,
-    modified
-) WITHOUT ROWID
-""".format(DB_NAME)
-DB_INSERT_QUERY = """INSERT OR REPLACE INTO {}
-    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-           ?, ?, ?, ?)""".format(DB_NAME)
-INSERT_FIELDS = ('id', 'shift_id', 'user_id', 'location_id', 'role_id',
-                 'department_id', 'approved', 'clocked_in', 'clocked_out',
-                 'auto_clocked_out', 'clocked_in_offline', 'clocked_out_offline',
-                 'created', 'modified')
-_DB_HNDL = None
-_CRSR = None
+LOG = logging.getLogger('lib7shifts.7shifts.shift')
 
 
-def db_handle(args):
-    global _DB_HNDL
-    if _DB_HNDL is None:
-        _DB_HNDL = sqlite3.connect(args.get('<sqlite_db>'))
-    return _DB_HNDL
+class SyncPunches2Sqlite(Sync7Shifts2Sqlite):
+    """Extend :class:`Sync7Shifts2Sqlite` to work for 7shifts shifts."""
 
-
-def cursor(args):
-    global _CRSR
-    if _CRSR is None:
-        _CRSR = db_handle(args).cursor()
-    return _CRSR
-
-
-def db_init_schema(args):
-    tbl_schema = DB_TBL_SCHEMA
-    print('initializing db schema', file=sys.stderr)
-    print(tbl_schema, file=sys.stderr)
-    cursor(args).execute(tbl_schema)
-
-
-def db_query(args, time_punches):
-    cursor(args).executemany(
-        DB_INSERT_QUERY, filter_fields(
-            time_punches, INSERT_FIELDS, print_rows=args.get('--debug', False)))
-    if args.get('--dry-run', False):
-        db_handle(args).rollback()
-    else:
-        db_handle(args).commit()
-
-
-def db_sync(args, per_pass=100):
-    print("syncing database", file=sys.stderr)
-    time_punches = []
-    for time_punch in get_time_punches(args):
-        time_punches.append(time_punch)
-        if len(time_punches) == per_pass:
-            db_query(args, time_punches)
-            time_punches = []
-    db_query(args, time_punches)
-    if args.get('--dry-run', False):
-        db_handle(args).rollback()
-    else:
-        db_handle(args).commit()
-
-
-def get_api_key():
-    try:
-        return os.environ['API_KEY_7SHIFTS']
-    except KeyError:
-        raise AssertionError("API_KEY_7SHIFTS not found in environment")
+    table_name = 'time_punches'
+    table_schema = """CREATE TABLE IF NOT EXISTS {table_name} (
+        id PRIMARY KEY UNIQUE,
+        shift_id,
+        user_id NOT NULL,
+        location_id NOT NULL,
+        role_id NOT NULL,
+        department_id NOT NULL,
+        approved NOT NULL,
+        clocked_in NOT NULL,
+        clocked_out NOT NULL,
+        auto_clocked_out,
+        clocked_in_offline,
+        clocked_out_offline,
+        created,
+        modified
+    ) WITHOUT ROWID"""
+    insert_query = """INSERT OR REPLACE INTO {table_name}
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+               ?, ?, ?, ?)"""
+    insert_fields = (
+        'id', 'shift_id', 'user_id', 'location_id', 'role_id',
+        'department_id', 'approved', 'clocked_in', 'clocked_out',
+        'auto_clocked_out', 'clocked_in_offline', 'clocked_out_offline',
+        'created', 'modified')
 
 
 def build_list_time_punch_args(args, limit=500, offset=0):
+    """Build a set of arguments to pass to the 7shfits API based on the
+    user-specified cli parameters"""
     list_args = {}
     if args.get('--start'):
         list_args['clocked_in[gte]'] = args.get('--start')
@@ -128,13 +75,13 @@ def build_list_time_punch_args(args, limit=500, offset=0):
 
 def get_time_punches(args, page_size=500):
     "Page size: how many results to fetch from the API at a time"
-    client = lib7shifts.get_client(get_api_key())
+    client = get_7shifts_client()
     offset = 0
     results = 0
     while True:
-        if args.get('--debug', False):
-            print("getting up to {} time_punches at offset {}".format(page_size, offset),
-                  file=sys.stderr)
+        LOG.debug(
+            "getting up to %d time_punches at offset %d",
+            page_size, offset)
         time_punches = lib7shifts.list_punches(
             client,
             **build_list_time_punch_args(args, limit=page_size, offset=offset))
@@ -152,31 +99,23 @@ def get_time_punches(args, page_size=500):
             offset += len(time_punches)
             continue
         break
-    if args.get('--debug', False):
-        print("returned {} results".format(results), file=sys.stderr)
+    LOG.debug("returned %d time punches", results)
 
 
 def main(**args):
-    logging.basicConfig()
-    if args['--debug']:
-        logging.getLogger().setLevel(logging.DEBUG)
-        print("arguments: {}".format(args), file=sys.stderr)
-    else:
-        logging.getLogger('lib7shifts').setLevel(logging.INFO)
+    """Run the cli-specified action (list, sync, init_schema)"""
     if args.get('list', False):
-        for time_punch in get_time_punches(args):
-            print(time_punch)
-    elif args.get('sync', False):
-        db_sync(args)
-    elif args.get('init_schema', False):
-        db_init_schema(args)
+        print_api_data(get_time_punches(args))
+    elif args.get('db', False):
+        sync_db = SyncPunches2Sqlite(
+            args.get('<sqlite_db>'),
+            dry_run=args.get('--dry-run'))
+        if args.get('sync', False):
+            sync_db.sync_to_database(get_time_punches(args))
+        elif args.get('init', False):
+            sync_db.init_db_schema()
+        else:
+            raise RuntimeError("no valid db action specified")
     else:
-        print("no valid action in args", file=sys.stderr)
-        print(args, file=sys.stderr)
-        return 1
+        raise RuntimeError("no valid action in args")
     return 0
-
-
-if __name__ == '__main__':
-    args = docopt(__doc__, version='7shifts2sqlite 0.1')
-    sys.exit(main(**args))
