@@ -20,25 +20,25 @@ def get_local_tz():
     return datetime.datetime.utcnow().astimezone().tzinfo
 
 
-def to_datetime(date_string, tz=datetime.timezone.utc):
+def to_datetime(date_string, tzinfo=datetime.timezone.utc):
     """Given a datetime string in API format, return a
     :class:`datetime.datetime` object corresponding to the date and time"""
     date = DateTime7Shifts.strptime(
         date_string, DEFAULT_DATETIME_FORMAT)
-    return date.replace(tzinfo=tz)
+    return date.replace(tzinfo=tzinfo)
 
 
-def to_date(date_string, tz=datetime.timezone.utc):
+def to_date(date_string, tzinfo=datetime.timezone.utc):
     """Given a date string in API format, return a :class:`datetime.datetime`
     object corresponding to the date and time"""
     date = DateTime7Shifts.strptime(
         date_string, DEFAULT_DATE_FORMAT)
-    return date.replace(tzinfo=tz)
+    return date.replace(tzinfo=tzinfo)
 
 
 def get_epoch_ts_for_date(date):
     "Given a local date of form YYYY-MM-DD, return a unix TS"
-    return to_date(date, tz=get_local_tz()).timestamp()
+    return to_date(date, tzinfo=get_local_tz()).timestamp()
 
 
 def from_datetime(dt_obj):
