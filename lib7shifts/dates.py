@@ -22,7 +22,8 @@ def today(tzinfo=None):
     """
     if not tzinfo:
         tzinfo = get_local_tz()
-    dtobj = DateTime7Shifts.today()
+    date = datetime.date.today()
+    dtobj = DateTime7Shifts(date.year, date.month, date.day)
     return dtobj.replace(tzinfo=tzinfo)
 
 
@@ -30,11 +31,14 @@ def tomorrow(tzinfo=None):
     """Returns a :class:`DateTime7Shifts` object corresponding to 12:00 AM
     tomorrow, defaulting to the current timezone (non-naiive)
     """
-    if not tzinfo:
-        tzinfo = get_local_tz()
-    dtobj = DateTime7Shifts.today()
-    dtobj.replace(tzinfo=tzinfo)
-    return dtobj + datetime.timedelta(days=1)
+    return today(tzinfo=tzinfo) + datetime.timedelta(days=1)
+
+
+def yesterday(tzinfo=None):
+    """Returns a :class:`DateTime7Shifts` object corresponding to 12:00 AM
+    yesterday in the local timezone (unless a different tzinfo is
+    specified). Non-naiive."""
+    return today(tzinfo=tzinfo) - datetime.timedelta(days=1)
 
 
 def get_local_tz():
@@ -74,9 +78,7 @@ def days_ago(ndays=0, tzinfo=None):
     start of the day, that many days ago (date snapping). Defaults to the local
     timezone that the code runs in, but provide an alternate to tzinfo if need
     be. By default, returns an epoch timestamp for the start of today"""
-    dtobj = today(tzinfo=tzinfo)
-    delta = datetime.timedelta(days=ndays)
-    return (dtobj - delta)
+    return today(tzinfo=tzinfo) - datetime.timedelta(days=ndays)
 
 
 def from_datetime(dt_obj):
