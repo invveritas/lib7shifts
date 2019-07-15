@@ -64,9 +64,10 @@ def get_users(args, page_size=200, skip_admin=False):
     """Get a list of users from the 7shifts API"""
     client = get_7shifts_client()
     results = 0
-    for active in (1, 0):
-        if not args.get('--with-inactive', False):
-            break
+    active_vals = [1]
+    if args.get('--with-inactive', False):
+        active_vals.append(0)
+    for active in active_vals:
         offset = 0
         while True:
             LOG.debug(
