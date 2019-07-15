@@ -28,7 +28,7 @@ class SyncWages2Sqlite(Sync7Shifts2Sqlite):
     table_schema = """CREATE TABLE IF NOT EXISTS {table_name} (
             category NOT NULL,
             user_id INTEGER NOT NULL,
-            role_id INTEGER NOT NULL,
+            role_id,
             effective_date,
             wage_type NOT NULL,
             wage_cents NOT NULL,
