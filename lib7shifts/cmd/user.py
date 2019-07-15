@@ -9,8 +9,7 @@
   -v --version      show version information
   --dry-run         does not commit data to database, but goes through inserts
   -d --debug        enable debug logging (low-level)
-  --only-inactive   only fetch inactive users
-  --only-active     only fetch active users
+  --with-inactive   include inactive users
 
 You must provide the 7shifts API key with an environment variable called
 API_KEY_7SHIFTS.
@@ -45,14 +44,11 @@ class SyncUsers2Sqlite(Sync7Shifts2Sqlite):
         'active', 'hire_date', 'company_id')
 
 
-def build_list_user_args(args, limit=500, offset=0):
+def build_list_user_args(args, active=1, limit=500, offset=0):
     """Build a set of parameters to send to the API based on the user-
     specified arguments"""
     list_args = {}
-    if args.get('--only-inactive'):
-        list_args['active'] = 0
-    if args.get('--only-active'):
-        list_args['active'] = 1
+    list_args['active'] = active
     list_args['limit'] = limit
     list_args['offset'] = offset
     return list_args
@@ -67,25 +63,32 @@ def get_user(user_id):
 def get_users(args, page_size=200, skip_admin=False):
     """Get a list of users from the 7shifts API"""
     client = get_7shifts_client()
-    offset = 0
-    results = 0
-    while True:
-        LOG.debug("getting up to %d users at offset %d", page_size, offset)
-        users = lib7shifts.list_users(
-            client,
-            **build_list_user_args(args, limit=page_size, offset=offset))
-        if users:
-            for user in users:
-                if skip_admin and user.is_admin():
-                    LOG.info(
-                        "Skipping admin user %s %s", user.firstname,
-                        user.lastname)
-                    continue
-                results += 1
-                yield user
-            offset += len(users)
-            continue
-        break
+    for active in (1, 0):
+        if not args.get('--with-inactive', False):
+            break
+        offset = 0
+        results = 0
+        while True:
+            LOG.debug(
+                "getting up to %d users (active: %d) at offset %d",
+                page_size, active, offset)
+            api_args = build_list_user_args(
+                args, active=active, limit=page_size, offset=offset)
+            users = lib7shifts.list_users(
+                client,
+                **api_args)
+            if users:
+                for user in users:
+                    if skip_admin and user.is_admin():
+                        LOG.info(
+                            "Skipping admin user %s %s", user.firstname,
+                            user.lastname)
+                        continue
+                    results += 1
+                    yield user
+                offset += len(users)
+                continue
+            break
     LOG.debug("returned %d users", results)
 
 
