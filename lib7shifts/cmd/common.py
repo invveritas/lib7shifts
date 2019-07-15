@@ -72,7 +72,7 @@ class Sync7Shifts2Sqlite(object):
         self.log = logging.getLogger(self.__class__.__module__)
         self.dry_run = kwargs.get('dry_run', False)
         self._db_location = db_location
-        self.kwargs = None
+        self.kwargs = kwargs
         self.__db_handle = None
         self.__cursor = None
 
@@ -82,6 +82,7 @@ class Sync7Shifts2Sqlite(object):
         if self.__db_handle is None:
             self.log.debug('getting an sqlite3 database handle')
             self.__db_handle = sqlite3.connect(self._db_location)
+            self.__db_handle.row_factory = sqlite3.Row
         return self.__db_handle
 
     def get_table_schema_query(self):
