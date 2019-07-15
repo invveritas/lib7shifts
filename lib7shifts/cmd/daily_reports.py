@@ -87,7 +87,7 @@ def main(**args):
             dry_run=args.get('--dry-run'))
         if args.get('sync', False):
             sync_db.sync_to_database(get_sales_and_labor(args)['daily'])
-        elif args.get('init_schema', False):
+        elif args.get('init', False):
             sync_db.init_db_schema()
         else:
             raise RuntimeError("no valid db action specified")
