@@ -9,10 +9,32 @@ DEFAULT_DATE_FORMAT = '%Y-%m-%d'
 
 class DateTime7Shifts(datetime.datetime):
     """Override representation of dates in datetime objects to match
-    7shifts form"""
+    7shifts form. Vitually identical to datetime.datetime"""
 
     def __str__(self):
         return self.strftime(DEFAULT_DATETIME_FORMAT)
+
+
+def today(tzinfo=None):
+    """Returns a DateTime7Shifts object corresponding to today at 12:00 AM in
+    the timezone specified by tzinfo. If no timezone is specified, uses the
+    local timezone as determined by :func:`get_local_tz` below.
+    """
+    if not tzinfo:
+        tzinfo = get_local_tz()
+    dtobj = DateTime7Shifts.today()
+    return dtobj.replace(tzinfo=tzinfo)
+
+
+def tomorrow(tzinfo=None):
+    """Returns a :class:`DateTime7Shifts` object corresponding to 12:00 AM
+    tomorrow, defaulting to the current timezone (non-naiive)
+    """
+    if not tzinfo:
+        tzinfo = get_local_tz()
+    dtobj = DateTime7Shifts.today()
+    dtobj.replace(tzinfo=tzinfo)
+    return dtobj + datetime.timedelta(days=1)
 
 
 def get_local_tz():
@@ -29,16 +51,32 @@ def to_datetime(date_string, tzinfo=datetime.timezone.utc):
 
 
 def to_date(date_string, tzinfo=datetime.timezone.utc):
-    """Given a date string in API format, return a :class:`datetime.datetime`
-    object corresponding to the date and time"""
+    """Given a date string in YYYY-MM-DD format, return a
+    :class:`datetime.datetime` object corresponding to the date at 12AM"""
     date = DateTime7Shifts.strptime(
         date_string, DEFAULT_DATE_FORMAT)
     return date.replace(tzinfo=tzinfo)
 
 
-def get_epoch_ts_for_date(date):
+def to_local_date(date_string):
+    """Returns a :class:`DateTime7Shifts` object for the specified date
+    string (YYYY-MM-DD form), in the local timezone."""
+    return to_date(date_string, tzinfo=get_local_tz())
+
+
+def _get_epoch_ts_for_date(date):
     "Given a local date of form YYYY-MM-DD, return a unix TS"
     return to_date(date, tzinfo=get_local_tz()).timestamp()
+
+
+def days_ago(ndays=0, tzinfo=None):
+    """Given a number of days ago, return a :class:`DateTime7Shifts` for the
+    start of the day, that many days ago (date snapping). Defaults to the local
+    timezone that the code runs in, but provide an alternate to tzinfo if need
+    be. By default, returns an epoch timestamp for the start of today"""
+    dtobj = today(tzinfo=tzinfo)
+    delta = datetime.timedelta(days=ndays)
+    return (dtobj - delta)
 
 
 def from_datetime(dt_obj):
