@@ -48,9 +48,15 @@ def get_wages(args, page_size=200):
         try:
             for category, data in user.get_wages().items():
                 for wage in data:
+                    wage['category'] = category
                     if wage['role_id']:
-                        wage['category'] = category
                         yield wage
+                    elif wage['wage_type'] == 'weekly_salary':
+                        LOG.info("found salary for user %s %s (id:%d)",
+                                 user.firstname, user.lastname, user.id)
+                        wage['role_id'] = 'all'
+                        yield wage
+
         except APIError as err:
             LOG.error(
                 "Caught error while processing user %s %s: %s",
