@@ -3,7 +3,6 @@ This module covers Events-related methods and objects for the 7shifts API.
 
 See https://www.7shifts.com/partner-api#toc-events for details.
 """
-import datetime
 from . import base
 from . import dates
 from . import locations

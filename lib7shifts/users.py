@@ -101,7 +101,7 @@ class User(base.APIObject):
         if self._company is None:
             from . import companies
             self._company = companies.get_company(
-                self.company_id, client=self.client)
+                self.company_id, self.client)
         return self._company
 
     def get_wages(self):

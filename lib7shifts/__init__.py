@@ -10,6 +10,7 @@ import this module to use the full suite, eg::
         print(punch)
 
 """
+import os
 import logging
 import datetime
 import json
@@ -30,14 +31,35 @@ from .departments import (get_department, list_departments,
                           Department, DepartmentList)
 from .events import (create_event, get_event, update_event, delete_event,
                      list_events, Event, EventList)
+from .receipts import create_receipt, update_receipt
 from .daily_reports import get_sales_and_labor
 from . import dates
 from . import exceptions
 
+#: Specify the name of the environment variable where this code expects to
+#: find the 7shifts API key, if not provided by the user directly.
+API_KEY_ENVVAR = 'API_KEY_7SHIFTS'
 
-def get_client(api_key, **kwargs):
-    "Returns an :class:`APIClient7Shifts`"
+
+def get_client(api_key=None, **kwargs):
+    """Returns an :class:`APIClient7Shifts` object.
+    If no api_key is provided, local environment variable API_KEY_7SHIFTS will
+    be used (if present)"""
+    if api_key is None:
+        api_key = get_api_key_from_env()
     return APIClient7Shifts(api_key=api_key, **kwargs)
+
+
+def get_api_key_from_env():
+    """Returns the API_KEY_7SHIFTS environment variable, raises an
+    AssertionError if it is missing"""
+    try:
+        return os.environ[API_KEY_ENVVAR]
+    except KeyError:
+        raise AssertionError(
+            "No API key provided and {} not found in environment".format(
+                API_KEY_ENVVAR
+            ))
 
 
 class APIClient7Shifts(object):
