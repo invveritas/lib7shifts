@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """usage:
+  7shifts wage get [options] <user_id>
   7shifts wage list [options]
   7shifts wage db sync [options] [--] <sqlite_db>
   7shifts wage db init [options] [--] <sqlite_db>
@@ -14,9 +15,10 @@ API_KEY_7SHIFTS.
 
 """
 import logging
+import lib7shifts
 from lib7shifts.exceptions import APIError
 from .user import get_users
-from .common import print_api_item, Sync7Shifts2Sqlite
+from .common import get_7shifts_client, print_api_item, Sync7Shifts2Sqlite
 
 LOG = logging.getLogger('lib7shifts.cli.user')
 
@@ -41,7 +43,14 @@ class SyncWages2Sqlite(Sync7Shifts2Sqlite):
         'wage_type', 'wage_cents')
 
 
-def get_wages(args, page_size=200):
+def get_wages_by_user_id(args):
+    """Given a user id, retreive wages from the API for that user"""
+    client = get_7shifts_client()
+    user = lib7shifts.get_user(client, args.get('<user_id>'))
+    return user.get_wages()
+
+
+def list_wages(args, page_size=200):
     """First, get a list of users direct from the API, then call the
     `get_wages()` method for each user and yield it out to the caller"""
     for user in get_users(args, page_size, skip_admin=True):
@@ -66,14 +75,16 @@ def get_wages(args, page_size=200):
 def main(**args):
     """Run the cli-specified action (list, sync, init_schema)"""
     if args.get('list', False):
-        for wage in get_wages(args):
+        for wage in list_wages(args):
             print_api_item(wage)
+    elif args.get('get', False):
+        print_api_item(get_wages_by_user_id(args))
     elif args.get('db', False):
         sync_db = SyncWages2Sqlite(
             args.get('<sqlite_db>'),
             dry_run=args.get('--dry-run'))
         if args.get('sync', False):
-            sync_db.sync_to_database(get_wages(args))
+            sync_db.sync_to_database(list_wages(args))
         elif args.get('init', False):
             sync_db.init_db_schema()
         else:
