@@ -4,22 +4,8 @@ Common methods and attributes for the various 7shifts commands
 import logging
 import sqlite3
 import datetime
-import os
 import json
-import lib7shifts
-
-
-def get_api_key():
-    """Looks for an API key in the API_KEY_7SHIFTS environment variable"""
-    try:
-        return os.environ['API_KEY_7SHIFTS']
-    except KeyError:
-        raise AssertionError("API_KEY_7SHIFTS not found in environment")
-
-
-def get_7shifts_client():
-    """Returns a 7shifts client, initialized with the API_KEY_7SHIFTS envvar"""
-    return lib7shifts.get_client(get_api_key())
+from lib7shifts import get_client as get_7shifts_client
 
 
 def print_api_item(item):
