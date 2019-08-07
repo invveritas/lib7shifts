@@ -34,14 +34,15 @@ class SyncUsers2Sqlite(Sync7Shifts2Sqlite):
             email,
             payroll_id UNIQUE,
             active NOT NULL,
+            user_type_id NOT NULL,
             hire_date,
             company_id NOT NULL
         ) WITHOUT ROWID"""
     insert_query = """INSERT OR REPLACE INTO {table_name}
-        VALUES(?, ?, ?, ?, ?, ?, ?, ?)"""
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)"""
     insert_fields = (
         'id', 'firstname', 'lastname', 'email', 'payroll_id',
-        'active', 'hire_date', 'company_id')
+        'active', 'user_type_id', 'hire_date', 'company_id')
 
 
 def build_list_user_args(args, active=1, limit=500, offset=0):
