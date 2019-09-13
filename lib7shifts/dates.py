@@ -68,6 +68,12 @@ def to_local_date(date_string):
     return to_date(date_string, tzinfo=get_local_tz())
 
 
+def to_local_datetime(date_string):
+    """Returns a :class:`DateTime7Shifts` object for the specified date
+    and time string (YYYY-MM-DD HH:MM:SS form), in the local timezone."""
+    return to_datetime(date_string, tzinfo=get_local_tz())
+
+
 def _get_epoch_ts_for_date(date):
     "Given a local date of form YYYY-MM-DD, return a unix TS"
     return to_date(date, tzinfo=get_local_tz()).timestamp()
