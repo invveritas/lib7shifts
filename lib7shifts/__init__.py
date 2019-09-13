@@ -25,7 +25,7 @@ from .time_punches import (get_punch, list_punches, TimePunch, TimePunchList,
 from .locations import (get_location, list_locations, Location, LocationList)
 from .shifts import (get_shift, list_shifts, Shift, ShiftList)
 from .companies import (get_company, list_companies, Company)
-from .users import (get_user, list_users, User)
+from .users import (get_user, list_users, User, UserList, Wage)
 from .roles import (get_role, list_roles, Role, RoleList)
 from .departments import (get_department, list_departments,
                           Department, DepartmentList)

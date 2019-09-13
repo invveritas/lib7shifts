@@ -3,6 +3,7 @@ Library for representing 7shifts Users.
 """
 from . import base
 from . import exceptions
+from .dates import to_local_date
 
 ENDPOINT = '/v1/users'
 
@@ -125,3 +126,39 @@ class UserList(list):
         for item in data:
             obj_list.append(User(**item['user'], client=client))
         return cls(obj_list)
+
+
+class Wage(base.APIObject):
+    """Represent a wage in a general, easier to use way.
+
+    Populate with a dictionary of kwargs generally containing:
+    - user_id: int
+    - role_id: int (or None for salaried)
+    - effective_date: in YYYY-MM-DD string form
+    - wage_type: (either 'hourly' or 'weekly_salary')
+    - wage_cents: integer
+    """
+
+    def __init__(self, **kwargs):
+        super(Wage, self).__init__(**kwargs)
+        self.effective_date = to_local_date(kwargs.get('effective_date'))
+
+    @property
+    def per_hour(self):
+        """Returns the per-hour equivalent for this wage. If this is salaried
+        role, returns 0.0"""
+        if self.is_salary():
+            return 0.0
+        return self.wage_cents / 100.0
+
+    def is_hourly(self):
+        """Returns True if this is an hourly wage"""
+        if self.wage_type == "hourly":
+            return True
+        return False
+
+    def is_salary(self):
+        """Returns True if this is a salaried wage"""
+        if self.wage_type == "weekly_salary":
+            return True
+        return False
