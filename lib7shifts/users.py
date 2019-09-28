@@ -112,9 +112,8 @@ class User(base.APIObject):
     def get_company(self):
         """Return a :class:`lib7shfits.companies.Company` object
         associated with this user. If the initial request to get this user
-        included the `deep` parameter, set to 1, the API data returned from
-        that request will be used to populate the company object, avoiding a
-        second API fetch. Otherwise, another API fetch must be used to populate
+        returned company data, that data will be used to populate the company
+        object. Otherwise, another API fetch must be used to populate
         company data. As such, the richness of company data may not be the
         same between the two methods."""
         if self._company is None:
@@ -131,8 +130,8 @@ class User(base.APIObject):
         """Return an iterable of :class:`lib7shifts.Department` objects that
         apply to this user.
 
-        IMPORTANT: This method only works if the API call used to fetch this
-        user had the `deep` parameter set to 1.
+        IMPORTANT: This method only works if the call to get this user was
+        made directly against the user id rather than through a list method.
         """
         from . import departments
         try:
@@ -147,8 +146,8 @@ class User(base.APIObject):
         """Return an iterable of :class:`lib7shifts.Location` objects that
         apply to this user.
 
-        IMPORTANT: This method only works if the API call used to fetch this
-        user had the `deep` parameter set to 1.
+        IMPORTANT: This method only works if the call to get this user was
+        made directly against the user id rather than through a list method.
         """
         from . import locations
         try:
@@ -162,8 +161,8 @@ class User(base.APIObject):
     def get_permissions(self):
         """Return a dictionary of permissions settings for this user.
 
-        IMPORTANT: This method only works if the API call used to fetch this
-        user had the `deep` parameter set to 1.
+        IMPORTANT: This method only works if the call to get this user was
+        made directly against the user id rather than through a list method.
         """
         try:
             return self._api_data('permission')
@@ -177,8 +176,8 @@ class User(base.APIObject):
         id, etc. A :class:`lib7shifts.RoleList` object will be returned, since
         users can have more than one role associated with them.
 
-        IMPORTANT: This method only works if the initial call to get this user
-        object included the `deep` parameter, set to 1."""
+        IMPORTANT: This method only works if the call to get this user was
+        made directly against the user id rather than through a list method."""
         try:
             from . import roles
             for data in self._api_data('role'):
