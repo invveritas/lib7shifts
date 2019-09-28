@@ -10,6 +10,7 @@
   --dry-run         does not commit data to database, but goes through inserts
   -d --debug        enable debug logging (low-level)
   --with-inactive   include inactive users
+  --deep            deep-scan of user data (get/list only)
 
 You must provide the 7shifts API key with an environment variable called
 API_KEY_7SHIFTS.
@@ -52,13 +53,15 @@ def build_list_user_args(args, active=1, limit=500, offset=0):
     list_args['active'] = active
     list_args['limit'] = limit
     list_args['offset'] = offset
+    if args.get('--deep'):
+        list_args['deep'] = 1
     return list_args
 
 
-def get_user(user_id):
+def get_user(user_id, deep=0):
     """Returns a single user from the 7shifts API based on the user ID"""
     client = get_7shifts_client()
-    return lib7shifts.get_user(client, user_id)
+    return lib7shifts.get_user(client, user_id, fields={'deep': deep})
 
 
 def get_users(args, page_size=200, skip_admin=False):
@@ -99,7 +102,10 @@ def main(**args):
     if args.get('list', False):
         print_api_data(get_users(args))
     elif args.get('get', False):
-        print_api_object(get_user(args['<user_id>']))
+        deep = 0
+        if args.get('--deep', False):
+            deep = 1
+        print_api_object(get_user(args['<user_id>'], deep=deep))
     elif args.get('db', False):
         sync_db = SyncUsers2Sqlite(
             args.get('<sqlite_db>'),
