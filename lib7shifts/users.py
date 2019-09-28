@@ -130,8 +130,8 @@ class User(base.APIObject):
         """Return an iterable of :class:`lib7shifts.Department` objects that
         apply to this user.
 
-        IMPORTANT: This method only works if the call to get this user was
-        made directly against the user id rather than through a list method.
+        IMPORTANT: This method only works if the call to get this user included
+        the `deep` field, set to 1.
         """
         from . import departments
         try:
@@ -146,8 +146,8 @@ class User(base.APIObject):
         """Return an iterable of :class:`lib7shifts.Location` objects that
         apply to this user.
 
-        IMPORTANT: This method only works if the call to get this user was
-        made directly against the user id rather than through a list method.
+        IMPORTANT: This method only works if the call to get this user included
+        the `deep` field, set to 1.
         """
         from . import locations
         try:
@@ -161,8 +161,8 @@ class User(base.APIObject):
     def get_permissions(self):
         """Return a dictionary of permissions settings for this user.
 
-        IMPORTANT: This method only works if the call to get this user was
-        made directly against the user id rather than through a list method.
+        IMPORTANT: This method only works if the call to get this user included
+        the `deep` field, set to 1.
         """
         try:
             return self._api_data('permission')
@@ -176,8 +176,8 @@ class User(base.APIObject):
         id, etc. A :class:`lib7shifts.RoleList` object will be returned, since
         users can have more than one role associated with them.
 
-        IMPORTANT: This method only works if the call to get this user was
-        made directly against the user id rather than through a list method."""
+        IMPORTANT: This method only works if the call to get this user included
+        the `deep` field, set to 1."""
         try:
             from . import roles
             for data in self._api_data('role'):
@@ -205,7 +205,7 @@ class UserList(list):
         """
         obj_list = []
         for item in data:
-            obj_list.append(User(**item['user'], client=client))
+            obj_list.append(User(**item, client=client))
         return cls(obj_list)
 
 
