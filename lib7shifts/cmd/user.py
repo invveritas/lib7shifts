@@ -46,6 +46,29 @@ class SyncUsers2Sqlite(Sync7Shifts2Sqlite):
         'active', 'user_type_id', 'hire_date', 'company_id')
 
 
+class SyncUsersRole2Sqlite(Sync7Shifts2Sqlite):
+    """Extend :class:`Sync7Shifts2Sqlite` to work for 7shifts user's roles."""
+
+    table_name = 'users_role'
+    table_schema = """CREATE TABLE IF NOT EXISTS {table_name} (
+            id PRIMARY KEY UNIQUE,
+            user_id NOT NULL,
+            role_id NOT NULL,
+            sort_order,
+            hourly_wage,
+            skill_level,
+            is_primary,
+            deleted,
+            created,
+            modified
+        ) WITHOUT ROWID"""
+    insert_query = """INSERT OR REPLACE INTO {table_name}
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+    insert_fields = (
+        'id', 'user_id', 'role_id', 'sort', 'hourly_wage',
+        'skill_level', 'primary', 'deleted', 'created', 'modified')
+
+
 def build_list_user_args(args, active=1, limit=500, offset=0):
     """Build a set of parameters to send to the API based on the user-
     specified arguments"""
@@ -61,7 +84,10 @@ def build_list_user_args(args, active=1, limit=500, offset=0):
 def get_user(user_id, deep=0):
     """Returns a single user from the 7shifts API based on the user ID"""
     client = get_7shifts_client()
-    return lib7shifts.get_user(client, user_id, fields={'deep': deep})
+    fields = dict()
+    if deep:
+        fields['deep'] = 1
+    return lib7shifts.get_user(client, user_id, fields=fields)
 
 
 def get_users(args, page_size=200, skip_admin=False):
@@ -99,21 +125,33 @@ def get_users(args, page_size=200, skip_admin=False):
 
 def main(**args):
     """Run the cli-specified action (list, sync, init)"""
+    deep = 0
+    if args.get('--deep', False):
+        deep = 1
     if args.get('list', False):
         print_api_data(get_users(args))
     elif args.get('get', False):
-        deep = 0
-        if args.get('--deep', False):
-            deep = 1
         print_api_object(get_user(args['<user_id>'], deep=deep))
     elif args.get('db', False):
-        sync_db = SyncUsers2Sqlite(
+        sync_user_db = SyncUsers2Sqlite(
+            args.get('<sqlite_db>'),
+            dry_run=args.get('--dry-run'))
+        sync_user_roles_db = SyncUsersRole2Sqlite(
             args.get('<sqlite_db>'),
             dry_run=args.get('--dry-run'))
         if args.get('sync', False):
-            sync_db.sync_to_database(get_users(args))
+            args['--deep'] = 1  # a deep fetch is required for this
+            users = list()
+            user_roles = list()
+            for user in get_users(args):
+                users.append(user)
+                for role in user.get_roles():
+                    user_roles.append(role.users_role)
+            sync_user_db.sync_to_database(users)
+            sync_user_roles_db.sync_to_database(user_roles)
         elif args.get('init', False):
-            sync_db.init_db_schema()
+            sync_user_db.init_db_schema()
+            sync_user_roles_db.init_db_schema()
         else:
             raise RuntimeError("no valid db action specified")
     else:
