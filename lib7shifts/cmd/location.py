@@ -24,15 +24,13 @@ class SyncLocations2Sqlite(Sync7Shifts2Sqlite):
             id PRIMARY KEY UNIQUE,
             address NOT NULL,
             timezone,
-            hash UNIQUE,
-            created,
-            modified
+            hash UNIQUE
         ) WITHOUT ROWID
         """
     insert_query = """INSERT OR REPLACE INTO {table_name}
-        VALUES(?, ?, ?, ?, ?, ?)"""
+        VALUES(?, ?, ?, ?)"""
     insert_fields = (
-        'id', 'address', 'timezone', 'hash', 'created', 'modified')
+        'id', 'address', 'timezone', 'hash')
 
 
 def get_locations():
