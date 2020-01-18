@@ -58,7 +58,15 @@ class User(base.APIObject):
         behaviour needs to be overloaded to look deeper in the dict to find its
         attributes.
         """
-        return self._api_data('user')[name]
+        return self._api_data(name)
+
+    def _api_data(self, name):
+        """
+        This object wraps calls to the class's underlying data dictionary,
+        allowing us to abstract that dictionary away through layers of caching
+        etc.
+        """
+        return super(User, self)._api_data('user')[name]
 
     @property
     def punch_code(self):
