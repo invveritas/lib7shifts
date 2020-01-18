@@ -5,7 +5,8 @@ Objects
 import json
 from . import dates
 
-class APIObject(object):
+
+class APIObject():
     """
     Define an object that is populated with data about the entity being
     represented, directly from the API (API key-value pairs are constructor
@@ -68,9 +69,10 @@ class APIObject(object):
         """
         Handy method for exposing all of the API properties without creating
         object attributes for them all in advance (new API attributes can show
-        up at any time). This method is only called if the object doesn't already
-        have an attribute of ``name``, so not a risk of breaking the object
-        and thus, we can add attributes to override this behaviour, as well.
+        up at any time). This method is only called if the object doesn't
+        already have an attribute of ``name``, so not a risk of breaking the
+        object and thus, we can add attributes to override this behaviour, as
+        well.
         """
         return self._api_data(name)
 
