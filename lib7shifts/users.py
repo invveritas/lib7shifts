@@ -128,7 +128,8 @@ class User(base.APIObject):
             from . import companies
             try:
                 self._company = companies.Company(
-                    **self._api_data('company'), client=self.client)
+                    **super(User, self)._api_data('company'),
+                    client=self.client)
             except KeyError:
                 self._company = companies.get_company(
                     self.client, self.company_id)
@@ -143,7 +144,7 @@ class User(base.APIObject):
         """
         from . import departments
         try:
-            for data in self._api_data('department'):
+            for data in super(User, self)._api_data('department'):
                 yield departments.Department(**data, client=self.client)
         except KeyError:
             raise RuntimeError((
@@ -159,7 +160,7 @@ class User(base.APIObject):
         """
         from . import locations
         try:
-            for data in self._api_data('location'):
+            for data in super(User, self)._api_data('location'):
                 yield locations.Location(**data, client=self.client)
         except KeyError:
             raise RuntimeError((
@@ -173,7 +174,7 @@ class User(base.APIObject):
         the `deep` field, set to 1.
         """
         try:
-            return self._api_data('permission')
+            return super(User, self)._api_data('permission')
         except KeyError:
             raise RuntimeError((
                 "Unable to get permission information for user without"
@@ -188,7 +189,7 @@ class User(base.APIObject):
         the `deep` field, set to 1."""
         try:
             from . import roles
-            for data in self._api_data('role'):
+            for data in super(User, self)._api_data('role'):
                 yield roles.Role(**data, client=self.client)
         except KeyError:
             raise RuntimeError(
