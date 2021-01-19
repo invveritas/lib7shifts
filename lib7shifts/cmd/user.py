@@ -40,14 +40,15 @@ class SyncUsers2Sqlite(Sync7Shifts2Sqlite):
             company_id NOT NULL,
             wage_type,
             created NOT NULL,
-            modified NOT NULL
+            modified NOT NULL,
+            birth_date
         ) WITHOUT ROWID"""
     insert_query = """INSERT OR REPLACE INTO {table_name}
-        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
     insert_fields = (
         'id', 'firstname', 'lastname', 'email', 'payroll_id',
         'active', 'user_type_id', 'hire_date', 'company_id',
-        'wage_type', 'created', 'modified')
+        'wage_type', 'created', 'modified', 'birth_date')
 
 
 class SyncUsersRole2Sqlite(Sync7Shifts2Sqlite):
