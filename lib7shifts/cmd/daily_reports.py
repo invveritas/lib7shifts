@@ -1,5 +1,6 @@
 """usage:
   7shifts daily_reports list --loc=ID --from=D --to=D [options]
+  7shifts daily_reports summary --loc=ID --from=D --to=D [options]
   7shifts daily_reports db sync --loc=ID --from=D --to=D [options] <sqlite_db>
   7shifts daily_reports db init [options] [--] <sqlite_db>
 
@@ -11,6 +12,7 @@ Options:
   --from=D          the starting date to pull data for
   --to=D            the last date to pull data for
   --loc=ID          a numeric id for the location in question
+  --dept=ID         a numeric id for the department
   --unapproved      include unapproved labour in report
 
 Dates should be in YYYY-MM-DD format, in the local timezone.
@@ -53,14 +55,18 @@ def build_args(args):
     """Build a list of arguments to provide to
     :func:`lib7shifts.get_sales_and_labour` based on user args."""
     list_args = {}
+    if args.get('--dept'):
+        list_args['department_id'] = int(args.get('--dept'))
     if args.get('--unapproved'):
         list_args['include_unapproved'] = True
     if args.get('--loc'):
         list_args['location_id'] = args.get('--loc')
     if args.get('--from'):
         list_args['from'] = args.get('--from')
+        list_args['start_date'] = args.get('--from')
     if args.get('--to'):
         list_args['to'] = args.get('--to')
+        list_args['end_date'] = args.get('--to')
     return list_args
 
 
@@ -71,6 +77,12 @@ def get_sales_and_labor(args):
         client,
         **build_args(args))
 
+def get_summary(args):
+    "Return sales and labour summary data from 7shifts API in raw form"
+    client = get_7shifts_client()
+    return lib7shifts.get_sales_labor_summary(
+        client, **build_args(args)
+    )
 
 def main(**args):
     """Run the cli-specified action (list, sync, init_schema)"""
@@ -81,6 +93,13 @@ def main(**args):
             'Total Labour: ${:0.2f} ({:0.2f} percent of sales)'.format(
                 data['weekly'], data['labor_percentage'] * 100
             ))
+    elif args.get('summary', False):
+        data = get_summary(args)
+        print_api_item(data)
+        #print(
+        #    'Total Labour: ${:0.2f} ({:0.2f} percent of sales)'.format(
+        #        data['weekly'], data['labor_percentage'] * 100
+        #    ))
     elif args.get('db', False):
         sync_db = SyncDailyReports2Sqlite(
             args.get('<sqlite_db>'),

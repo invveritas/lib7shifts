@@ -31,7 +31,7 @@ from docopt import docopt
 
 VALID_CMDS = (
     'company', 'department', 'location', 'role', 'shift',
-    'time_punch', 'user', 'wage', 'daily_reports')
+    'time_punch', 'user', 'wage', 'daily_reports', 'daily_labor')
 
 
 def main(**args):

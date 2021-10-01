@@ -32,7 +32,8 @@ from .departments import (get_department, list_departments,
 from .events import (create_event, get_event, update_event, delete_event,
                      list_events, Event, EventList)
 from .receipts import create_receipt, update_receipt
-from .daily_reports import get_sales_and_labor
+from .daily_reports import get_sales_and_labor, get_sales_labor_summary
+from .daily_labor import get_daily_labor
 from . import dates
 from . import exceptions
 
