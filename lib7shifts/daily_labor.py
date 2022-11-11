@@ -34,8 +34,8 @@ def get_daily_labor(client, **params):
                 "labor_actual": 1548.65,
                 "location_id": [YOUR LOCATION ID],
                 "date": "2019-01-07",
-                "projected": 5231,
-                "actual": 4808.23
+                "projected_sales": 5231,
+                "actual_sales": 4808.23
             }
         ],
         "weekly": 6480.218571428572,

@@ -48,7 +48,8 @@ class SyncDailyReports2Sqlite(Sync7Shifts2Sqlite):
     insert_fields = (
         'date', 'location_id', 'labor_target_percentage',
         'labor_hours_scheduled', 'labor_cost_scheduled',
-        'labor_hours_worked', 'labor_actual', 'projected', 'actual')
+        'labor_hours_worked', 'labor_actual', 'projected_sales',
+        'actual_sales')
 
 
 def build_args(args):
