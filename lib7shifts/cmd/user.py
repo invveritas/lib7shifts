@@ -1,19 +1,27 @@
 #!/usr/bin/env python3
 """usage:
-  7shifts user get [options] <user_id>
-  7shifts user list [options]
-  7shifts user db sync [options] [--] <sqlite_db>
+  7shifts user get [options] <company_id> <user_id>
+  7shifts user list <company_id> [options]
+  7shifts user db sync <company_id> [options] [--] <sqlite_db>
   7shifts user db init [options] [--] <sqlite_db>
 
+Filtering options for 'list' operations:
+
+  --modified-since=YYYY-MM-DD  optionally list users modified after a date
+  --location-id=N   restrict to users at a particular location ID
+  --department-id=N  restrict to a particular department ID
+  --role-id=N       restrict to a particular department
+  --name=SS         filter by full or partial employee name
+  --inactive        get inactive users (default is active only)
+
+Standard options:
   -h --help         show this screen
   -v --version      show version information
   --dry-run         does not commit data to database, but goes through inserts
   -d --debug        enable debug logging (low-level)
-  --with-inactive   include inactive users
-  --deep            deep-scan of user data (get/list only)
 
 You must provide the 7shifts API key with an environment variable called
-API_KEY_7SHIFTS.
+ACCESS_TOKEN_7SHIFTS.
 
 """
 import logging
@@ -74,58 +82,37 @@ class SyncUsersRole2Sqlite(Sync7Shifts2Sqlite):
         'skill_level', 'primary', 'deleted', 'created', 'modified')
 
 
-def build_list_user_args(args, active=1, limit=500, offset=0):
+def build_list_user_args(args):
     """Build a set of parameters to send to the API based on the user-
     specified arguments"""
-    list_args = {}
-    list_args['active'] = active
-    list_args['limit'] = limit
-    list_args['offset'] = offset
-    if args.get('--deep'):
-        list_args['deep'] = 1
+    list_args = {'status': 'active'}
+    if args.get('--inactive'):
+        list_args['status'] = 'inactive'
+    if args.get('--modified-since'):
+        list_args['modified_since'] = args.get('--modified-since')
+    if args.get('--location-id'):
+        list_args['location_id'] = args.get('--location-id')
+    elif args.get('--department-id'):
+        list_args['department_id'] = args.get('--department-id')
+    elif args.get('--role-id'):
+        list_args['role_id'] = args.get('--role-id')
     return list_args
 
 
-def get_user(user_id, deep=0):
+def get_user(company_id, user_id, deep=0):
     """Returns a single user from the 7shifts API based on the user ID"""
     client = get_7shifts_client()
     fields = dict()
     if deep:
         fields['deep'] = 1
-    return lib7shifts.get_user(client, user_id, fields=fields)
+    return lib7shifts.get_user(client, company_id, user_id, fields=fields)
 
 
-def get_users(args, page_size=200, skip_admin=False):
+def list_users(args):
     """Get a list of users from the 7shifts API"""
     client = get_7shifts_client()
-    results = 0
-    active_vals = [1]
-    if args.get('--with-inactive', False):
-        active_vals.append(0)
-    for active in active_vals:
-        offset = 0
-        while True:
-            LOG.debug(
-                "getting up to %d users (active: %d) at offset %d",
-                page_size, active, offset)
-            api_args = build_list_user_args(
-                args, active=active, limit=page_size, offset=offset)
-            users = lib7shifts.list_users(
-                client,
-                **api_args)
-            if users:
-                for user in users:
-                    if skip_admin and user.is_admin():
-                        LOG.info(
-                            "Skipping admin user %s %s", user.firstname,
-                            user.lastname)
-                        continue
-                    results += 1
-                    yield user
-                offset += len(users)
-                continue
-            break
-    LOG.debug("returned %d users", results)
+    return lib7shifts.list_users(
+        client, args.get('<company_id>'), **build_list_user_args(args))
 
 
 def main(**args):
@@ -134,9 +121,10 @@ def main(**args):
     if args.get('--deep', False):
         deep = 1
     if args.get('list', False):
-        print_api_data(get_users(args))
+        print_api_data(list_users(args))
     elif args.get('get', False):
-        print_api_object(get_user(args['<user_id>'], deep=deep))
+        print_api_object(get_user(
+            args.get('<company_id>'), args.get('<user_id>')))
     elif args.get('db', False):
         sync_user_db = SyncUsers2Sqlite(
             args.get('<sqlite_db>'),
@@ -148,7 +136,7 @@ def main(**args):
             args['--deep'] = 1  # a deep fetch is required for this
             users = list()
             user_roles = list()
-            for user in get_users(args):
+            for user in list_users(args):
                 users.append(user)
                 for role in user.get_roles():
                     user_roles.append(role.users_role)

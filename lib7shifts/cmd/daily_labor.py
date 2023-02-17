@@ -41,6 +41,7 @@ def get_daily_labor(args):
         client,
         **build_args(args))
 
+
 def main(**args):
     """Run the cli-specified action (list, sync, init_schema)"""
     if args.get('list', False):

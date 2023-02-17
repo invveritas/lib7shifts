@@ -4,10 +4,12 @@ classes and functions from the other modules in lib7shifts, so you only need to
 import this module to use the full suite, eg::
 
     from lib7shifts import get_client, list_punches
-    client = get_client(api_key='YOURAPIKEYHERE')
+    client = get_client(access_token='YOURAPIKEYHERE')
     punches = list_punches(client, **{'clocked_in[gte]': '2019-06-07'})
     for punch in punches:
         print(punch)
+
+Note that this code currently only supports access tokens rather than OAUTH.
 
 """
 import os
@@ -32,40 +34,40 @@ from .departments import (get_department, list_departments,
 from .events import (create_event, get_event, update_event, delete_event,
                      list_events, Event, EventList)
 from .receipts import create_receipt, update_receipt
-from .daily_reports import get_sales_and_labor, get_sales_labor_summary
-from .daily_labor import get_daily_labor
+from .hours_wages import get_hours_and_wages_report
+from .daily_labor import get_daily_sales_and_labor
 from . import dates
 from . import exceptions
 
 #: Specify the name of the environment variable where this code expects to
 #: find the 7shifts API key, if not provided by the user directly.
-API_KEY_ENVVAR = 'API_KEY_7SHIFTS'
+ACCESS_TOKEN_ENVVAR = 'ACCESS_TOKEN_7SHIFTS'
 
 
-def get_client(api_key=None, **kwargs):
+def get_client(access_token=None, **kwargs):
     """Returns an :class:`APIClient7Shifts` object.
-    If no api_key is provided, local environment variable API_KEY_7SHIFTS will
-    be used (if present)"""
-    if api_key is None:
-        api_key = get_api_key_from_env()
-    return APIClient7Shifts(api_key=api_key, **kwargs)
+    If no access_token is provided, local environment variable
+    defined in :attr:`ACCESS_TOKEN_ENVVAR` above will be used (if present)"""
+    if access_token is None:
+        access_token = get_access_token_from_env()
+    return APIClient7Shifts(access_token=access_token, **kwargs)
 
 
-def get_api_key_from_env():
-    """Returns the API_KEY_7SHIFTS environment variable, raises an
+def get_access_token_from_env():
+    """Returns the ACCESS_TOKEN_ENVVAR environment variable, raises an
     AssertionError if it is missing"""
     try:
-        return os.environ[API_KEY_ENVVAR]
+        return os.environ[ACCESS_TOKEN_ENVVAR]
     except KeyError:
         raise AssertionError(
-            "No API key provided and {} not found in environment".format(
-                API_KEY_ENVVAR
+            "No access token provided and {} not found in environment".format(
+                ACCESS_TOKEN_ENVVAR
             ))
 
 
 class APIClient7Shifts(object):
     """
-    7shifts API v1 client.
+    7shifts API v2 client.
 
     Natively uses urllib3 connection pooling and includes support for rate
     limiting with a RateLimiter from the `apiclient` module. This code was
@@ -74,20 +76,21 @@ class APIClient7Shifts(object):
     original design and inspiration.
     """
 
-    BASE_URL = 'https://api.7shifts.com/v1'
+    BASE_URL = 'https://api.7shifts.com/v2'
     ENCODING = 'utf8'
     KEEP_ALIVE = True
     USER_AGENT = 'py-lib7shifts'
+    API_VERSION = '2022-10-01'
 
     def __init__(self, **kwargs):
         """
         Supported kwargs:
 
-        - api_key: the api key to use for requests (required)
+        - access_token: the api key to use for requests (required)
         - rate_limit_lock - from apiclient.ratelimiter module
         """
         self.log = logging.getLogger(self.__class__.__name__)
-        self.api_key = kwargs.pop('api_key')
+        self.access_token = kwargs.pop('access_token')
         self.rate_limit_lock = kwargs.pop('rate_limit_lock', None)
         self.__connection_pool = None
 
@@ -199,8 +202,10 @@ class APIClient7Shifts(object):
         """
         headers = urllib3.util.make_headers(
             keep_alive=self.KEEP_ALIVE,
-            user_agent=self.USER_AGENT,
-            basic_auth='{}:'.format(self.api_key))
+            user_agent=self.USER_AGENT)
+        headers['Authorization'] = f'Bearer {self.access_token}'
+        headers['x-api-version'] = self.API_VERSION
+        headers['accept'] = 'application/json'
         self.__connection_pool = urllib3.connectionpool.connection_from_url(
             self.BASE_URL, cert_reqs='CERT_REQUIRED', ca_certs=certifi.where(),
             headers=headers)

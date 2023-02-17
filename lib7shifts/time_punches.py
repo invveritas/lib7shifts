@@ -5,14 +5,14 @@ from . import base
 from . import dates
 from . import exceptions
 
-ENDPOINT = '/v1/time_punches'
+ENDPOINT = '/v2/company/{company_id}/time_punches'
 
 
-def get_punch(client, punch_id):
+def get_punch(client, company_id, punch_id):
     """Implements the 'Read' operation from the 7shifts API. Supply a punch ID.
     Returns a :class:`TimePunch` object.
     """
-    response = client.read(ENDPOINT, punch_id)
+    response = client.read(ENDPOINT.format(company_id=company_id), punch_id)
     try:
         punch_id = response['data']['time_punch']
         return TimePunch(**response['data'], client=client)
@@ -20,7 +20,7 @@ def get_punch(client, punch_id):
         raise exceptions.EntityNotFoundError('Time Punch', punch_id)
 
 
-def list_punches(client, **kwargs):
+def list_punches(client, company_id, **kwargs):
     """Implements the 'List' method for Time Punches as outlined in the API,
     and returns a TimePunchList object representing all the punches. Provide a
     'client' parameter with an active :class:`lib7shifts.APIClient`
@@ -42,8 +42,12 @@ def list_punches(client, **kwargs):
     See https://www.7shifts.com/partner-api#crud-toc-time-punches-list for
     details.
     """
-    response = client.list(ENDPOINT, fields=kwargs)
-    return TimePunchList.from_api_data(response['data'], client=client)
+    return TimePunchList.from_api_data(
+        company_id,
+        base.page_api_get_results(
+            client, ENDPOINT.format(company_id=company_id),
+            **kwargs, limit=200),
+        client=client)
 
 
 class TimePunch(base.APIObject):
@@ -66,22 +70,15 @@ class TimePunch(base.APIObject):
     the 7shifts API.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, company_id, **kwargs):
         super(TimePunch, self).__init__(**kwargs)
+        self.company_id = company_id
         self._breaks = None
         self._user = None
         self._role = None
         self._location = None
         self._department = None
         self._shift = None
-
-    def __getattr__(self, name):
-        """
-        Because this class is passed a nested dictionary, the parent's
-        behaviour needs to be overloaded to look deeper in the dict to find its
-        attributes.
-        """
-        return self._api_data('time_punch')[name]
 
     def get_shift(self):
         """Return a :class:`lib7shifts.shifts.Shift`
@@ -91,7 +88,8 @@ class TimePunch(base.APIObject):
         """
         if self._shift is None:
             from . import shifts
-            self._shift = shifts.get_shift(self.client, self.shift_id)
+            self._shift = shifts.get_shift(
+                self.client, self.company_id, self.shift_id)
         return self._shift
 
     def get_user(self):
@@ -100,7 +98,8 @@ class TimePunch(base.APIObject):
         user data from a :func:`read` operation."""
         if self._user is None:
             from . import users
-            self._user = users.get_user(self.client, self.user_id)
+            self._user = users.get_user(
+                self.client, self.company_id, self.user_id)
         return self._user
 
     def get_role(self):
@@ -109,18 +108,19 @@ class TimePunch(base.APIObject):
         An API fetch will be used to fulfill this call."""
         if self._role is None:
             from . import roles
-            self._role = roles.get_role(self.client, self.role_id)
+            self._role = roles.get_role(
+                self.client, self.company_id, self.role_id)
         return self._role
 
     def get_location(self):
-        """Returns a :class:`lib7shifts.locations.Location` object corresponding
-        to the location of the punch.
+        """Returns a :class:`lib7shifts.locations.Location` object
+        corresponding to the location of the punch.
         An API fetch will be used if this object wasn't initially seeded with
         location data from a :func:`read` operation."""
         if self._location is None:
             from . import locations
             self._location = locations.get_location(
-                self.client, self.location_id)
+                self.client, self.company, self.location_id)
         return self._location
 
     def get_department(self):
@@ -131,33 +131,33 @@ class TimePunch(base.APIObject):
         if self._department is None:
             from . import departments
             self._department = departments.get_department(
-                self.client, self.department_id)
+                self.client, self.company, self.department_id)
         return self._department
 
     @property
     def clocked_in(self):
         "Returns a :class:`datetime.datetime` object for the punch-in time"
-        return dates.to_datetime(self._api_data('time_punch')['clocked_in'])
+        return dates.to_datetime(self._api_data('clocked_in'))
 
     @property
     def clocked_out(self):
         "Returns a :class:`datetime.datetime` object for the punch-out time"
-        if self._api_data('time_punch')['clocked_out'] \
+        if self._api_data()['clocked_out'] \
                 == '0000-00-00 00:00:00':
             # currently logged in shift, return now
             return dates.DateTime7Shifts.now()
-        return dates.to_datetime(self._api_data('time_punch')['clocked_out'])
+        return dates.to_datetime(self._api_data('clocked_out'))
 
     @property
     def created(self):
         "Returns a :class:`datetime.datetime` object for punch creation time"
-        return dates.to_datetime(self._api_data('time_punch')['created'])
+        return dates.to_datetime(self._api_data('created'))
 
     @property
     def modified(self):
         """Returns a :class:`datetime.datetime` object corresponding to the
         last time this punch was modified"""
-        return dates.to_datetime(self._api_data('time_punch')['modified'])
+        return dates.to_datetime(self._api_data('modified'))
 
     @property
     def breaks(self):
@@ -165,7 +165,7 @@ class TimePunch(base.APIObject):
         for this punch"""
         if self._breaks is None:
             self._breaks = TimePunchBreakList.from_api_data(
-                self._api_data('time_punch_break'))
+                self._api_data('breaks'))
         return self._breaks
 
 
@@ -176,21 +176,22 @@ class TimePunchList(list):
     """
 
     @classmethod
-    def from_api_data(cls, data, client=None):
+    def from_api_data(cls, company_id, data, client=None):
         """Provide this method with the punch data returned directly from
         the API in raw format.
         """
         obj_list = []
         for item in data:
-            obj_list.append(TimePunch(**item, client=client))
+            obj_list.append(TimePunch(company_id, **item, client=client))
         return cls(obj_list)
 
 
 class TimePunchBreak(base.APIObject):
     "Represent a Time Punch Break"
 
-    def __init__(self, **kwargs):
+    def __init__(self, company_id, **kwargs):
         super(TimePunchBreak, self).__init__(**kwargs)
+        self.company_id = company_id
         self._user = None
 
     @property
@@ -204,6 +205,11 @@ class TimePunchBreak(base.APIObject):
         """Returns a :class:`datetime.datetime` object corresponding to the
         time the break ended"""
         return dates.to_datetime(self._api_data('out'))
+
+    @property
+    def paid(self):
+        """Returns True if 7shifts thinks this is a paid break"""
+        return self._api_data('paid')
 
     def get_user(self):
         """Perform an API fetch and return a :class:`lib7shfits.users.User`
@@ -228,11 +234,11 @@ class TimePunchBreakList(list):
     """
 
     @classmethod
-    def from_api_data(cls, data, client=None):
+    def from_api_data(cls, company_id, data, client=None):
         """Provide this method with the break data returned directly from
         the API in raw format.
         """
         obj_list = []
         for item in data:
-            obj_list.append(TimePunchBreak(**item, client=client))
+            obj_list.append(TimePunchBreak(company_id, **item, client=client))
         return cls(obj_list)

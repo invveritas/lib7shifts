@@ -9,7 +9,7 @@
   -d --debug        enable debug logging (low-level)
 
 You must provide the 7shifts API key with an environment variable called
-API_KEY_7SHIFTS.
+ACCESS_TOKEN_7SHIFTS.
 
 """
 import lib7shifts

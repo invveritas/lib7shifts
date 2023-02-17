@@ -6,6 +6,25 @@ import json
 from . import dates
 
 
+def page_api_get_results(client, endpoint, **kwargs):
+    """Execute an API call (GET) that is expected to have paging support.
+    This method will yield individual result rows as an iterable, avoiding the
+    need for the caller to concern themselves with the details of paging.
+
+    Unless `limit` is explicitly passed by the caller, a default page size of
+    100 will be used.
+    """
+    if 'limit' not in kwargs:
+        kwargs['limit'] = 100
+    next = True
+    while next:
+        response = client.list(endpoint, fields=kwargs)
+        for item in response['data']:
+            yield item
+        next = response['meta']['cursor']['next']
+        kwargs['cursor'] = next
+
+
 class APIObject():
     """
     Define an object that is populated with data about the entity being

@@ -94,6 +94,19 @@ def list_events(client, **kwargs):
     return EventList.from_api_data(response['data'], client=client)
 
 
+def list_events_v2(client, **kwargs):
+    """Use the v2 API to get events for the specified location and date range.
+    kwargs:
+
+    - location_id
+    - start_date
+    - end_date (inclusive)
+    """
+    endpoint = '/v2/events'
+    response = client.list(endpoint, fields=kwargs)
+    return EventList.from_api_data(response['data'], client=client)
+
+
 class Event(base.APIObject):
     """
     Represents the Event object as defined in the API. Attributes defined by

@@ -46,7 +46,7 @@ class SyncDailyReports2Sqlite(Sync7Shifts2Sqlite):
     insert_query = """INSERT OR REPLACE INTO {table_name}
         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)"""
     insert_fields = (
-        'date', 'location_id', 'labor_target_percentage',
+        'date', 'location_id', 'labor_percent',
         'labor_hours_scheduled', 'labor_cost_scheduled',
         'labor_hours_worked', 'labor_actual', 'projected_sales',
         'actual_sales')
@@ -74,9 +74,10 @@ def build_args(args):
 def get_sales_and_labor(args):
     "Return sales and labour data from the 7shifts API (raw dict form)"
     client = get_7shifts_client()
-    return lib7shifts.get_sales_and_labor(
+    return lib7shifts.get_daily_sales_and_labor(
         client,
         **build_args(args))
+
 
 def get_summary(args):
     "Return sales and labour summary data from 7shifts API in raw form"
@@ -84,6 +85,7 @@ def get_summary(args):
     return lib7shifts.get_sales_labor_summary(
         client, **build_args(args)
     )
+
 
 def main(**args):
     """Run the cli-specified action (list, sync, init_schema)"""
@@ -97,7 +99,7 @@ def main(**args):
     elif args.get('summary', False):
         data = get_summary(args)
         print_api_item(data)
-        #print(
+        # print(
         #    'Total Labour: ${:0.2f} ({:0.2f} percent of sales)'.format(
         #        data['weekly'], data['labor_percentage'] * 100
         #    ))

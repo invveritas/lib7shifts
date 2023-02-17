@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """usage:
-  7shifts role list [options]
-  7shifts role db sync [options] [--] <sqlite_db>
+  7shifts role list <company_id> [options]
+  7shifts role db sync <company_id> [options] [--] <sqlite_db>
   7shifts role db init [options] [--] <sqlite_db>
 
   -h --help         show this screen
@@ -10,7 +10,7 @@
   -d --debug        enable debug logging (low-level)
 
 You must provide the 7shifts API key with an environment variable called
-API_KEY_7SHIFTS.
+ACCESS_TOKEN_7SHIFTS.
 
 """
 import lib7shifts
@@ -36,23 +36,23 @@ class SyncRoles2Sqlite(Sync7Shifts2Sqlite):
         'created', 'modified')
 
 
-def get_roles():
+def get_roles(company_id):
     """Return a list of :class:`lib7shifts.role.Role` objects from
     the API"""
     client = get_7shifts_client()
-    return lib7shifts.list_roles(client)
+    return lib7shifts.list_roles(client, company_id)
 
 
 def main(**args):
     """Run the cli-specified action (list, sync, init)"""
     if args.get('list', False):
-        print_api_data(get_roles())
+        print_api_data(get_roles(args.get('<company_id>')))
     elif args.get('db', False):
         sync_db = SyncRoles2Sqlite(
             args.get('<sqlite_db>'),
             dry_run=args.get('--dry-run'))
         if args.get('sync', False):
-            sync_db.sync_to_database(get_roles())
+            sync_db.sync_to_database(get_roles(args.get('<company_id>')))
         elif args.get('init', False):
             sync_db.init_db_schema()
         else:

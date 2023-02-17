@@ -1,6 +1,6 @@
 """usage:
-  7shifts location list [options]
-  7shifts location db sync [options] [--] <sqlite_db>
+  7shifts location list <company_id> [options]
+  7shifts location db sync <company_id> [options] [--] <sqlite_db>
   7shifts location db init [options] [--] <sqlite_db>
 
   -h --help         show this screen
@@ -9,7 +9,7 @@
   -d --debug        enable debug logging (low-level)
 
 You must provide the 7shifts API key with an environment variable called
-API_KEY_7SHIFTS.
+ACCESS_TOKEN_7SHIFTS.
 
 """
 import lib7shifts
@@ -33,23 +33,23 @@ class SyncLocations2Sqlite(Sync7Shifts2Sqlite):
         'id', 'address', 'timezone', 'hash')
 
 
-def get_locations():
+def get_locations(company_id):
     """Return a list of :class:`lib7shifts.location.Location` objects from
     the API"""
     client = get_7shifts_client()
-    return lib7shifts.list_locations(client)
+    return lib7shifts.list_locations(client, company_id)
 
 
 def main(**args):
     """Run the cli-specified action (list, sync, init)"""
     if args.get('list', False):
-        print_api_data(get_locations())
+        print_api_data(get_locations(args.get('<company_id>')))
     elif args.get('db', False):
         sync_db = SyncLocations2Sqlite(
             args.get('<sqlite_db>'),
             dry_run=args.get('--dry-run'))
         if args.get('sync', False):
-            sync_db.sync_to_database(get_locations())
+            sync_db.sync_to_database(get_locations(args.get('<company_id>')))
         elif args.get('init', False):
             sync_db.init_db_schema()
         else:
