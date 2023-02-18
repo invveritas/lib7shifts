@@ -8,103 +8,109 @@ from . import dates
 from . import locations
 from . import exceptions
 
-ENDPOINT = '/v1/events'
+ENDPOINT = '/v2/company/{company_id}/events'
 
 
-def create_event(client, **kwargs):
-    """Creates an event as defined in the API documentation. Supports
-    the following parameters:
+def list_events(client, company_id, **kwargs):
+    """Retrieve a list of schedule events for the given timeframe.
 
-    - title
-    - description
-    - date ('YYYY-MM-DD' format)
-    - start ('HH:MM:SS' format)
-    - color (hexadecimal code as string, eg 'FBAF40')
-    - location (as either a list of IDs or a :class:`locations.LocationList`)
-    - client (api client object to use)
+    Supported kwargs::
 
-    Returns the ID of the event upon successful creation.
+        - location_id: the location bound to the schedule events
+        - start_date: a YYYY-MM-DD formatted date (required)
+        - end_date: a YYYY-MM-DD formatted date (required)
+
     """
-    location = kwargs.pop('location')
-    try:
-        location = location.list_ids()
-    except AttributeError:
-        pass
-    body = {'event': kwargs, 'location': location}
-    response = client.create(ENDPOINT, body=body)
-    return response['data']['event']['id']
+    if 'start_date' not in kwargs:
+        raise RuntimeError("start_date not provided for list_events, required")
+    if 'end_date' not in kwargs:
+        raise RuntimeError("end_date not provided for list_events, required")
+    for item in client.list(ENDPOINT.format(
+            company_id=company_id), fields=kwargs)['data']:
+        yield Event(**item, client=client)
 
 
-def get_event(client, event_id):
+def get_event(client, company_id, event_id):
     """Implements the 'Read' method from the 7shifts API for events.
     Returns a :class:`Event` object."""
-    response = client.read(ENDPOINT, event_id)
+    response = client.read(ENDPOINT.format(
+        company_id=company_id), event_id)
     try:
-        return Event(**response['data']['event'], client=client)
+        return Event(**response['data'], client=client)
     except KeyError:
         raise exceptions.EntityNotFoundError('Event', event_id)
 
 
-def update_event(client, event_id, **kwargs):
+def create_event(client, company_id, **kwargs):
+    """Creates an event as defined in the API documentation. Supports
+    the following parameters:
+
+    - location_ids: a required list of integers ie: [1232, 4392]
+    - start_date: a required YYYY-MM-DD format date
+    - start_time: a required time string eg. 09:00:00
+    - end_date: required, same format as above
+    - end_time: required, same format as above
+    - title: required, a text-based name for the event
+    - is_multi_day: required boolean, set true for events spanning days
+    - description: a textual description of the event
+    - color: a hex RGB code for the event color, eg. 5ea17c
+    - recurrence: see RFC 5545. Eg.
+        "Daily for 10 occurrences ==> 
+            (1997 9:00 AM EDT) September 2-11 DTSTART;
+            TZID=America/New_York:19970902T090000
+            RRULE:FREQ=DAILY;COUNT=10"
+
+    Returns the ID of the event upon successful creation.
+    """
+    response = client.create(ENDPOINT.format(
+        company_id=company_id), body=kwargs)
+    return response
+
+
+def update_event(client, company_id, event_id, **kwargs):
     """
     Implements the Update method for the Events API. You can update any of the
     following attributes by providing them as kwargs:
 
-    - title
-    - description
-    - color
-    - date (in 'YYYY-MM-DD' form)
-    - start (in 'HH:MM:SS' form)
+    - location_ids: a required list of integers ie: [1232, 4392]
+    - start_date: a required YYYY-MM-DD format date
+    - start_time: a required time string eg. 09:00:00
+    - end_date: required, same format as above
+    - end_time: required, same format as above
+    - title: required, a text-based name for the event
+    - is_multi_day: required boolean, set true for events spanning days
+    - description: a textual description of the event
+    - color: a hex RGB code for the event color, eg. 5ea17c
+    - recurrence: see RFC 5545. Eg.
+        "Daily for 10 occurrences ==> 
+            (1997 9:00 AM EDT) September 2-11 DTSTART;
+            TZID=America/New_York:19970902T090000
+            RRULE:FREQ=DAILY;COUNT=10"
+    - recurrence_target: either "THIS" or "THIS_AND_FUTURE"
 
-    You must also pass a 'client' kwarg with an active API client.
-    Upon success, returns the ID of the event.
+    You must also pass a 'client' kwarg with an active API client, and a
+    company_id.
+    Upon success, returns the event JSON for all affected events.
     """
-    response = client.update(ENDPOINT, event_id, body={'event': kwargs})
-    return response['data']['event']['id']
+    response = client.update(ENDPOINT.format(
+        company_id=company_id), event_id, method='PATCH', body=kwargs)
+    return response['data']
 
 
-def delete_event(client, event_id):
+def delete_event(client, company_id, event_id, **kwargs):
     """
     Implements the Delete API method for Events.
 
-    Pass in the ID number for the event to be deleted, and an active API
-    client.
+    Pass in the ID number for the event to be deleted, a company ID, 
+    and an active API client. Also supports these kwargs:
+
+    - recurrence_target: either THIS or THIS_AND_FUTURE
+    - start_date: start of the targeted range for recurrence, in format:
+        YYYY-MM-DD HH:MM:SS
+
     """
-    client.delete(ENDPOINT, event_id)
-
-
-def list_events(client, **kwargs):
-    """
-    Implements the List operation in the Events API. Provide any of the
-    following kwargs as filter criteria:
-
-    - date: ('YYYY-MM-DD' format) for a single date
-    - date[gte]: for dates greater than or equal to the value
-    - date[lte]: for dates earlier than or on the value
-    - limit: limit the results to return
-    - offset: return results at a particular offset (for paging)
-    - order_field: what to order results by, eg: event.modified
-    - order_dir: the direction to order results in, either 'asc' or 'desc'
-
-    You must also pass in an active 'client'.
-
-    Returns an EventsList.
-    """
-    response = client.list(ENDPOINT, fields=kwargs)
-    return EventList.from_api_data(response['data'], client=client)
-
-
-def list_events_v2(client, **kwargs):
-    """Use the v2 API to get events for the specified location and date range.
-    kwargs:
-
-    - location_id
-    - start_date
-    - end_date (inclusive)
-    """
-    endpoint = '/v2/events'
-    response = client.list(endpoint, fields=kwargs)
-    return EventList.from_api_data(response['data'], client=client)
+    client.delete(ENDPOINT.format(
+        company_id=company_id), event_id, fields=kwargs)
 
 
 class Event(base.APIObject):
@@ -115,12 +121,15 @@ class Event(base.APIObject):
     - id
     - title
     - description
-    - date (YYYY-MM-DD)
-    - start (returned as full datetime in this class, time only on the API)
+    - start_date (YYYY-MM-DD format)
+    - start_time (HH:MM:SS format)
+    - end_date (YYYY-MM-DD format)
+    - end_time (HH:MM:SS format)
     - color
-    - location (see also :meth:`get_locations`)
-    - created
-    - modified
+    - location_ids (see also :meth:`get_locations`)
+    - event_type
+    - recurrence (see RFC 5545)
+    - is_multi_day (true or false)
 
     """
     @property
@@ -132,20 +141,4 @@ class Event(base.APIObject):
     def get_locations(self):
         "Returns an array of :class:`lib7shifts.locations.Location` objects"
         return locations.LocationList.from_id_list(
-            self.location, client=self.client)
-
-
-class EventList(list):
-    """
-    A list of :class:`Event` objects.
-    """
-    @classmethod
-    def from_api_data(cls, data, client=None):
-        """
-        Given a set of API data from a List call, populate this class with
-        :class:`Event` objects corresponding to the events.
-        """
-        events = list()
-        for event in data:
-            events.append(Event(**event['event'], client=client))
-        return cls(events)
+            self.location_ids, client=self.client)

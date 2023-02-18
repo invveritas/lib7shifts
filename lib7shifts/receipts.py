@@ -6,8 +6,19 @@ See https://developers.7shifts.com/reference/listsalesreceipts for more
 details.
 """
 from . import base
+from . import exceptions
 
 ENDPOINT = '/v2/company/{company_id}/receipts'
+
+
+def get_receipt(client, company_id, receipt_id):
+    """Retrieve a single receipt from the 7shifts API."""
+    response = client.read(ENDPOINT.format(company_id=company_id),
+                           receipt_id)
+    try:
+        return Receipt(**response['data'], client=client)
+    except KeyError:
+        raise exceptions.EntityNotFoundError('Receipt', receipt_id)
 
 
 def list_receipts(client, company_id, **kwargs):
@@ -73,8 +84,13 @@ def list_receipts(client, company_id, **kwargs):
         ]
 
     """
-    return base.page_api_get_results(
-        client, ENDPOINT.format(company_id=company_id), **kwargs)
+    if 'location_id' not in kwargs:
+        raise RuntimeError("location_id must be provided as a kwarg")
+    if 'limit' not in kwargs:
+        kwargs['limit'] = 100
+    for item in base.page_api_get_results(
+            client, ENDPOINT.format(company_id=company_id), **kwargs):
+        yield Receipt(**item, client=client)
 
 
 def create_receipt(client, company_id, **kwargs):
@@ -113,3 +129,7 @@ def update_receipt(client, company_id, receipt_id, **kwargs):
         ENDPOINT.format(company_id=company_id), receipt_id,
         body=kwargs)
     return response
+
+
+class Receipt(base.APIObject):
+    """Represents a 7shifts sales receipt object."""

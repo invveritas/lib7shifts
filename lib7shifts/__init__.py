@@ -4,7 +4,7 @@ classes and functions from the other modules in lib7shifts, so you only need to
 import this module to use the full suite, eg::
 
     from lib7shifts import get_client, list_punches
-    client = get_client(access_token='YOURAPIKEYHERE')
+    client = get_client(access_token='YOUR_TOKEN')
     punches = list_punches(client, **{'clocked_in[gte]': '2019-06-07'})
     for punch in punches:
         print(punch)
@@ -22,20 +22,23 @@ try:
     from urllib import urlencode
 except ImportError:
     from urllib.parse import urlencode
-from .time_punches import (get_punch, list_punches, TimePunch, TimePunchList,
+from .time_punches import (get_punch, list_punches, TimePunch,
                            TimePunchBreak, TimePunchBreakList)
-from .locations import (get_location, list_locations, Location, LocationList)
-from .shifts import (get_shift, list_shifts, Shift, ShiftList)
+from .locations import (get_location, list_locations, Location)
+from .shifts import (get_shift, list_shifts, Shift)
 from .companies import (get_company, list_companies, Company)
-from .users import (get_user, list_users, User, UserList, Wage)
-from .roles import (get_role, list_roles, Role, RoleList)
+from .users import (get_user, list_users, User)
+from .wages import (list_user_wages, Wage, WageList)
+from .roles import (get_role, list_roles, Role)
 from .departments import (get_department, list_departments,
-                          Department, DepartmentList)
+                          Department)
 from .events import (create_event, get_event, update_event, delete_event,
-                     list_events, Event, EventList)
-from .receipts import create_receipt, update_receipt
+                     list_events, Event)
+from .receipts import (get_receipt, create_receipt, update_receipt,
+                       list_receipts, Receipt)
 from .hours_wages import get_hours_and_wages_report
-from .daily_labor import get_daily_sales_and_labor
+from .daily_sales_labor import get_daily_sales_and_labor
+from .whoami import get_whoami
 from . import dates
 from . import exceptions
 
@@ -115,14 +118,14 @@ class APIClient7Shifts(object):
         return self._request(
             'POST', endpoint, body=body, **urlopen_kw)
 
-    def update(self, endpoint, item_id, **urlopen_kw):
+    def update(self, endpoint, item_id, method='PUT', **urlopen_kw):
         """Perform Update operations for the given endpoint/item_id
         IMPORTANT: Pass PUT data using the ``body`` kwarg, unencoded. The
         data will be JSON encoded before posting.
         """
         body = json.dumps(urlopen_kw.pop('body', dict()))
         return self._request(
-            'PUT', "{}/{:d}".format(endpoint, item_id),
+            method.upper(), "{}/{:d}".format(endpoint, item_id),
             body=body, **urlopen_kw)
 
     def delete(self, endpoint, item_id, **urlopen_kw):

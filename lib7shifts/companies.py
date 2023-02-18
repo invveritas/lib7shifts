@@ -14,7 +14,7 @@ def get_company(client, company_id):
     Returns a :class:`Company` object."""
     response = client.read(ENDPOINT, company_id)
     try:
-        return Company(**response['data']['company'], client=client)
+        return Company(**response['data'], client=client)
     except KeyError:
         raise exceptions.EntityNotFoundError('Company', company_id)
 
@@ -22,8 +22,7 @@ def get_company(client, company_id):
 def list_companies(client):
     """Implements the 'List' operation for 7shifts companies.
     """
-    response = client.list(ENDPOINT)
-    for item in response['data']:
+    for item in client.list(ENDPOINT)['data']:
         yield Company(**item, client=client)
 
 

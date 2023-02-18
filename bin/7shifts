@@ -2,26 +2,37 @@
 """
 usage: 7shifts [options] <command> [<args>...]
 
+A tool for experimenting with the 7shifts API, demonstrating some of the
+capabilities of this library. Read-based tasks are supported, such as get/list,
+but all operations to alter data must be achieved in Python code, directly
+using the 7shifts library.
+
 options:
     -h --help         Show this screen
     -v --version      Show version information
     -d --debug        Enable debug logging (low-level)
 
 commands:
-    company     list and sync company data to sqlite
-    department  list and sync department data to sqlite
-    location    list and sync location data to sqlite
-    role        list and sync role data to sqlite
-    shift       list and sync shift data to sqlite
-    time_punch  list and sync time punch data to sqlite
-    user        list and sync user data to sqlite
-    wage        list and sync user wages to sqlite
-    daily_reports  list and sync sales and labour reports
+    company     get/list company data from the API
+    department  get/list department data from the API
+    location    get/list location data from the API
+    event       get/list schedule event data from API
+    receipt     get/list sales receipt data from the API
+    role        get/list role data from the API
+    shift       get/list shift data from the API
+    time_punch  get/list time punch data from the API
+    user        get/list user data from the API
+    wage        get/list user wage data from the API
+    daily_sales_labor  get daily sales and labour data from the API
+    whoami      retrieve identity information for the current access token
     help        show this screen
 
-For most commands, you will also need to provide the 7shifts API key with an
-environment variable called API_KEY_7SHIFTS for authenticaton with the 7shifts
-API.
+You will also need to provide a 7shifts access token with an
+environment variable called ACCESS_TOKEN_7SHIFTS for authenticaton
+with the 7shifts API. See the following for details of how to create
+an access token:
+
+https://developers.7shifts.com/reference/authentication#access-tokens
 
 """
 import sys
@@ -30,8 +41,8 @@ import importlib
 from docopt import docopt
 
 VALID_CMDS = (
-    'company', 'department', 'location', 'role', 'shift',
-    'time_punch', 'user', 'wage', 'daily_reports', 'daily_labor')
+    'company', 'department', 'location', 'event', 'role', 'shift',
+    'receipt', 'time_punch', 'user', 'wage', 'daily_sales_labor', 'whoami')
 
 
 def main(**args):

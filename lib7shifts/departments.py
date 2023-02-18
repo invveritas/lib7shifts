@@ -17,7 +17,7 @@ def get_department(client, company_id, department_id):
     response = client.read(ENDPOINT.format(company_id=company_id),
                            department_id)
     try:
-        return Department(**response['data']['department'], client=client)
+        return Department(**response['data'], client=client)
     except KeyError:
         raise exceptions.EntityNotFoundError('Department', department_id)
 
@@ -30,16 +30,16 @@ def list_departments(client, company_id, **kwargs):
     Pass in an active :class:`lib7shifts.APIClient` object and any of the
     following parameters supported by the API:
 
-    - limit: limit the number of results to be returned
-    - offset: return results starting from an offset
-    - order_field: the field to order results by, eg:
-        order_field=shift.modified
-    - order_dir: "asc" or "desc"
+    - modified_since: a YYYY-MM-DD date string
+    - location_id: filter to a specific location
 
-    Returns a :class:`RoleList` object containing :class:`Role` objects.
+    Returns an iterable of :class:`Department` objects.
     """
-    return DepartmentList.from_api_data(base.page_api_get_results(
-        client, ENDPOINT.format(company_id=company_id), **kwargs))
+    if 'limit' not in kwargs:
+        kwargs['limit'] = 100
+    for item in base.page_api_get_results(
+            client, ENDPOINT.format(company_id=company_id), **kwargs):
+        yield Department(**item, client=client)
 
 
 class Department(base.APIObject):
@@ -47,20 +47,3 @@ class Department(base.APIObject):
     Represents a 7shifts Shift object, with all the same attributes as the
     Shift object defined in the API documentation.
     """
-    pass
-
-
-class DepartmentList(list):
-    """
-    An interable list of :class:`Department` objects.
-    """
-
-    @classmethod
-    def from_api_data(cls, data, client=None):
-        """Provide this method with the department data returned directly from
-        the API in raw format.
-        """
-        obj_list = []
-        for item in data:
-            obj_list.append(Department(**item, client=client))
-        return cls(obj_list)

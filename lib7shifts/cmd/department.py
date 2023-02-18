@@ -1,58 +1,60 @@
 """usage:
   7shifts department list <company_id> [options]
-  7shifts department db sync <company_id> [options] [--] <sqlite_db>
-  7shifts department db init [options] [--] <sqlite_db>
+  7shifts department get <company_id> <department_id> [options]
+
+Filtering options for list operations:
+
+  --modified-since=YYYY-MM-DD
+  --location-id=DD  filter by location
+
+General options:
 
   -h --help         show this screen
   -v --version      show version information
-  --dry-run         does not commit data to database, but goes through inserts
   -d --debug        enable debug logging (low-level)
 
-You must provide the 7shifts API key with an environment variable called
+You must provide a 7shifts access token with an environment variable called
 ACCESS_TOKEN_7SHIFTS.
 
 """
+import logging
 import lib7shifts
-from .common import get_7shifts_client, print_api_data, Sync7Shifts2Sqlite
+from .common import get_7shifts_client, print_api_data, print_api_object
 
 
-class SyncDepartments2Sqlite(Sync7Shifts2Sqlite):
-    """Extend :class:`Sync7Shifts2Sqlite` to work for 7shifts departments."""
-
-    table_name = 'departments'
-    table_schema = """CREATE TABLE IF NOT EXISTS {table_name} (
-            id PRIMARY KEY UNIQUE,
-            name NOT NULL,
-            location_id,
-            created,
-            modified
-        ) WITHOUT ROWID
-        """
-    insert_query = """INSERT OR REPLACE INTO {table_name}
-        VALUES(?, ?, ?, ?, ?)"""
-    insert_fields = ('id', 'name', 'location_id', 'created', 'modified')
+LOG = logging.getLogger('lib7shifts.cli.department')
 
 
-def get_departments(company):
+def build_list_args(args):
+    list_args = {}
+    if args.get('--modified-since'):
+        list_args['modified_since'] = args.get('--modified-since')
+    if args.get('--location-id'):
+        list_args['location_id'] = args.get('--location-id')
+    LOG.debug("list_departments parameters: %s", list_args)
+    return list_args
+
+
+def list_departments(args):
     "Return a list of :class:`lib7shifts.company.Company` objects from the API"
     client = get_7shifts_client()
-    return lib7shifts.list_departments(client, company)
+    return lib7shifts.list_departments(client, args.get('<company_id>'))
+
+
+def get_department(args):
+    "Retrieve a single department from the 7shifts API"
+    client = get_7shifts_client()
+    return lib7shifts.get_department(
+        client, args.get('<company_id>'), args.get('<department_id>'))
 
 
 def main(**args):
     """Run the cli-specified action (list, sync, init)"""
     if args.get('list', False):
-        print_api_data(get_departments(args.get('<company_id>')))
-    elif args.get('db', False):
-        sync_db = SyncDepartments2Sqlite(
-            args.get('<sqlite_db>'),
-            dry_run=args.get('--dry-run'))
-        if args.get('sync', False):
-            sync_db.sync_to_database(get_departments(args.get('<company_id>')))
-        elif args.get('init', False):
-            sync_db.init_db_schema()
-        else:
-            raise RuntimeError("no valid db action specified")
+        count = print_api_data(list_departments(args))
+        LOG.info("%d departments found")
+    elif args.get('get', False):
+        print_api_object(get_department(args))
     else:
         raise RuntimeError("no valid action in args")
     return 0

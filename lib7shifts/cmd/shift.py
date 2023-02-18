@@ -1,125 +1,122 @@
 #!/usr/bin/env python3
 """usage:
-  7shifts shift list [options]
-  7shifts shift db sync [options] [--] <sqlite_db>
-  7shifts shift db init [options] [--] <sqlite_db>
+  7shifts shift list <company_id> [options]
+  7shifts shift get <company_id> <shift_id> [options]
+
+Filtering options for list operations:
+
+  --department-id=NN  a department to narrow down on, by id
+  --department-ids=NN  a comma-separated list of department IDs to filter on
+  --location-id=NN  a location to narrow down on, by id
+  --shift-ids=NN    a comma-separated list of shift IDs to return data for
+  --role-id=NN      specify a particular role, by id
+  --user-id=NN      return shifts for a particular user, by id
+  --start-before-on=DD  return shifts that start on or before date
+  --start-on-after=DD  return shifts that start on or after date
+  --end-before-on=DD  return shifts that end on or before date
+  --end-on-after=DD  return shifts that end on or after date
+  --deleted         return shifts that were published and since deleted
+  --draft-only      return only un-published shifts in results
+                    (overrides --deleted)
+  --include-draft   include un-published shifts in the results
+  --open            return only open shifts in results
+  --modified-since=DD  Return shifts modifed since date (inclusive)
+  --sort-by-end     sort by shift end time
+  --sort-by-start   sort by shift start time
+  --sort-asc        Sort ascending by time order
+  --sort-desc       Sort descending by time order
+
+Note, get operations also support the --deleted parameter. Dates are always in
+YYYY-MM-DD format.
+
+General options:
 
   -h --help         show this screen
   -v --version      show version information
   -d --debug        enable debug logging (low-level)
-  --dry-run         does not commit data to database, but goes through inserts
-  -s --start=DATE   start date (and optional time) to return shifts for
-  -e --end=DATE     end date (and optional time) to stop returning shifts after
-  --deleted         include deleted shifts in results
-  --draft           include draft shifts in results
-  --open            whether or not to ONLY return open shifts in results
-  --dept-id=NN      specify a department to narrow down on, by id
-  --location-id=NN  specify a location to narrow down on, by id
 
-You must provide the 7shifts API key with an environment variable called
-API_KEY_7SHIFTS.
+You must provide a 7shifts access token with an environment variable called
+ACCESS_TOKEN_7SHIFTS.
 
 """
 import logging
 import lib7shifts
-from .common import get_7shifts_client, print_api_data, Sync7Shifts2Sqlite
+from .common import get_7shifts_client, print_api_data, print_api_object
+
 
 LOG = logging.getLogger('lib7shifts.7shifts.shift')
 
 
-class SyncShifts2Sqlite(Sync7Shifts2Sqlite):
-    """Extend :class:`Sync7Shifts2Sqlite` to work for 7shifts shifts."""
-
-    table_name = 'shifts'
-    table_schema = """CREATE TABLE IF NOT EXISTS {table_name} (
-            id PRIMARY KEY UNIQUE,
-            start NOT NULL,
-            end NOT NULL,
-            location_id NOT NULL,
-            user_id NOT NULL,
-            role_id NOT NULL,
-            department_id NOT NULL,
-            close,
-            notes,
-            hourly_wage,
-            open,
-            notified,
-            open_offer_type,
-            draft,
-            deleted,
-            bd,
-            status,
-            late_minutes,
-            created,
-            modified
-        ) WITHOUT ROWID"""
-    insert_query = """INSERT OR REPLACE INTO {table_name}
-        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
-    insert_fields = (
-        'id', 'start', 'end', 'location_id', 'user_id', 'role_id',
-        'department_id', 'close', 'notes', 'hourly_wage', 'open',
-        'notified', 'open_offer_type', 'draft', 'deleted', 'bd',
-        'status', 'late_minutes', 'created', 'modified')
-
-
-def build_list_shift_args(args, limit=500, offset=0):
+def build_list_shift_args(args):
     """Build a set of arguments to pass to the API based on the user's
     specified filters"""
-    list_args = {}
-    if args.get('--start'):
-        list_args['start[gte]'] = args.get('--start')
-    if args.get('--end'):
-        list_args['start[lte]'] = args.get('--end')
+    list_args = dict()
+    if args.get('--department-id'):
+        list_args['department_id'] = args.get('--department-id')
+    if args.get('--department-ids'):
+        list_args['department_ids'] = args.get('--department-ids')
     if args.get('--location-id'):
         list_args['location_id'] = args.get('--location-id')
-    if args.get('--dept-id'):
-        list_args['department_id'] = args.get('--dept-id')
-    list_args['deleted'] = args.get('--deleted')
-    list_args['draft'] = args.get('--draft')
-    list_args['open'] = args.get('--open')
-    list_args['limit'] = limit  # 500 seems to be the API limit
-    list_args['offset'] = offset
+    if args.get('--shift-ids'):
+        list_args['shift_ids'] = args.get('--shift-ids')
+    if args.get('--role-id'):
+        list_args['role_id'] = args.get('--role-id')
+    if args.get('--user-id'):
+        list_args['user_id'] = args.get('--user-id')
+    if args.get('--start-before-on'):
+        list_args['start[lte]'] = args.get('--start-before-on')
+    if args.get('--start-on-after'):
+        list_args['start[gte]'] = args.get('--start-on-after')
+    if args.get('--end-before-on'):
+        list_args['end[lte]'] = args.get('--end-before-on')
+    if args.get('--end-on-after'):
+        list_args['end[gte]'] = args.get('--end-on-after')
+    if args.get('--draft-only'):
+        list_args['draft'] = True
+    elif args.get('--deleted'):
+        list_args['deleted'] = True
+    if args.get('--include-draft'):
+        list_args['include_draft'] = True
+    if args.get('--open'):
+        list_args['open'] = True
+    if args.get('--modified-since'):
+        list_args['modified_since'] = args.get('--modified-since')
+    if args.get('--sort-by-end'):
+        list_args['sort_by'] = 'end'
+    elif args.get('--sort-by-start'):
+        list_args['sort_by'] = 'start'
+    if args.get('--sort-asc'):
+        list_args['sort_dir'] = 'asc'
+    elif args.get('--sort-desc'):
+        list_args['sort_dir'] = 'desc'
     LOG.debug("list_shift args: %s", list_args)
     return list_args
 
 
-def get_shifts(args, page_size=500):
-    "Page size: how many results to fetch from the API at a time"
+def list_shifts(args):
+    "Use the API to return shifts based on CLI filter parameters"
     client = get_7shifts_client()
-    offset = 0
-    results = 0
-    while True:
-        LOG.debug(
-            "getting up to %d shifts at offset %d",
-            page_size, offset)
-        shifts = lib7shifts.list_shifts(
-            client,
-            **build_list_shift_args(args, limit=page_size, offset=offset))
-        if shifts:
-            for shift in shifts:
-                results += 1
-                yield shift
-            offset += len(shifts)
-            continue
-        break
-    LOG.debug("returned %s shifts", results)
+    return lib7shifts.list_shifts(
+        client, args.get('<company_id>'), **build_list_shift_args(args))
+
+
+def get_shifts(args):
+    "Use the API to retrieve a specific shift"
+    client = get_7shifts_client()
+    params = {}
+    if args.get('--deleted'):
+        params['include_deleted'] = True
+    return lib7shifts.get_shift(
+        client, args.get('<company_id>'), args.get('<shift_id>'), **params)
 
 
 def main(**args):
     """Run the cli-specified action (list, sync, init)"""
     if args.get('list', False):
-        print_api_data(get_shifts(args))
-    elif args.get('db', False):
-        sync_db = SyncShifts2Sqlite(
-            args.get('<sqlite_db>'),
-            dry_run=args.get('--dry-run'))
-        if args.get('sync', False):
-            sync_db.sync_to_database(get_shifts(args))
-        elif args.get('init', False):
-            sync_db.init_db_schema()
-        else:
-            raise RuntimeError("no valid db action specified")
+        count = print_api_data(list_shifts(args))
+        LOG.info("%d shifts found", count)
+    elif args.get('get'):
+        print_api_object(get_shifts(args))
     else:
         raise RuntimeError("no valid action in args")
     return 0

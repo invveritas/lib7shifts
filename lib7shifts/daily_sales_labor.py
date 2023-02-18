@@ -43,5 +43,11 @@ def get_daily_sales_and_labor(client, **params):
         ]
 
     """
+    if 'start_date' not in params:
+        raise RuntimeError('No start_date in params (required)')
+    if 'end_date' not in params:
+        raise RuntimeError('No end_date in params (required)')
+    if 'location_id' not in params:
+        raise RuntimeError('No location_id in params (required)')
     response = client.get_endpoint(ENDPOINT, fields=params)
     return response['data']

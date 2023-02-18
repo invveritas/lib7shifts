@@ -1,121 +1,95 @@
 #!/usr/bin/env python3
 """usage:
-  7shifts time_punch list [options]
-  7shifts time_punch db sync [options] [--] <sqlite_db>
-  7shifts time_punch db init [options] [--] <sqlite_db>
+  7shifts time_punch list <company_id> [options]
+  7shifts time_punch get <company_id> <punch_id> [options]
+
+Filtering/sorting parameters for list operations:
+
+  --location-id=NN      a location to narrow down on, by id
+  --department-id=NN    a department to narrow down on, by id
+  --role-id=NN          a role to filter on
+  --user-id=NN          return punches only for the given user ID
+  --unapproved          return unapproved time punches only
+  --approved            return approved time punches only
+  --modified-since=DD   return punches modified on/after this date (YYYY-MM-DD)
+  --clocked-in-on-after=DD  return punches with clock-ins on/after date
+  --clocked-in-before-on=DD  return punches with clock-ins before/on date
+  --clocked-out-on-after=DD  return punches with clock-outs on/after date
+  --clocked-out-before-on=DD  return punches with clock-outs before/on date
+  --sort-by=SS          name of a field and direction to sort by.
+                        eg: modified.asc or clocked_in.desc
+
+General options:
 
   -h --help         show this screen
   -v --version      show version information
   -d --debug        enable debug logging (low-level)
-  --dry-run         does not commit data to database, but goes through inserts
-  -s --start=DATE   start date to return time_punches for
-  -e --end=DATE     end date to stop returning time punches after
-  --unapproved      include unapproved time_punches in results
-  --only-unapproved  ONLY include unapproved time_punches in results
-  --dept-id=NN      specify a department to narrow down on, by id
-  --location-id=NN  specify a location to narrow down on, by id
 
-You must provide the 7time_punches API key with an environment variable called
-API_KEY_7time_punches.
+You must provide a 7shifts access token with an environment variable called
+ACCESS_TOKEN_7SHIFTS.
 
 """
 import logging
 import lib7shifts
-from .common import get_7shifts_client, print_api_data, Sync7Shifts2Sqlite
-
-LOG = logging.getLogger('lib7shifts.7shifts.shift')
+from .common import get_7shifts_client, print_api_data, print_api_object
 
 
-class SyncPunches2Sqlite(Sync7Shifts2Sqlite):
-    """Extend :class:`Sync7Shifts2Sqlite` to work for 7shifts shifts."""
-
-    table_name = 'time_punches'
-    table_schema = """CREATE TABLE IF NOT EXISTS {table_name} (
-        id PRIMARY KEY UNIQUE,
-        shift_id,
-        user_id NOT NULL,
-        location_id NOT NULL,
-        role_id NOT NULL,
-        department_id NOT NULL,
-        approved NOT NULL,
-        clocked_in NOT NULL,
-        clocked_out NOT NULL,
-        auto_clocked_out,
-        clocked_in_offline,
-        clocked_out_offline,
-        created,
-        modified
-    ) WITHOUT ROWID"""
-    insert_query = """INSERT OR REPLACE INTO {table_name}
-        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-               ?, ?, ?, ?)"""
-    insert_fields = (
-        'id', 'shift_id', 'user_id', 'location_id', 'role_id',
-        'department_id', 'approved', 'clocked_in', 'clocked_out',
-        'auto_clocked_out', 'clocked_in_offline', 'clocked_out_offline',
-        'created', 'modified')
+LOG = logging.getLogger('lib7shifts.7shifts.time_punch')
 
 
-def build_list_time_punch_args(args, limit=500, offset=0):
+def build_list_time_punch_args(args):
     """Build a set of arguments to pass to the 7shfits API based on the
     user-specified cli parameters"""
     list_args = {}
-    if args.get('--start'):
-        list_args['clocked_in[gte]'] = args.get('--start')
-    if args.get('--end'):
-        list_args['clocked_in[lte]'] = args.get('--end')
     if args.get('--location-id'):
         list_args['location_id'] = args.get('--location-id')
-    if args.get('--dept-id'):
-        list_args['department_id'] = args.get('--dept-id')
-    list_args['limit'] = limit  # 500 seems to be the API limit
-    list_args['offset'] = offset
+    if args.get('--department-id'):
+        list_args['department_id'] = args.get('--department-id')
+    if args.get('--role-id'):
+        list_args['role_id'] = args.get('--role-id')
+    if args.get('--user-id'):
+        list_args['user_id'] = args.get('--user-id')
+    if args.get('--unapproved'):
+        list_args['approved'] = False
+    if args.get('--approved'):
+        list_args['approved'] = True
+    if args.get('--modified-since'):
+        list_args['modified_since'] = args.get('--modified-since')
+    if args.get('--clocked-in-on-after'):
+        list_args['clocked_in[gte]'] = args.get('--clocked-in-on-after')
+    if args.get('--clocked-in-before-on'):
+        list_args['clocked_in[lte]'] = args.get('--clocked-in-before-on')
+    if args.get('--clocked-out-on-after'):
+        list_args['clocked_out[gte]'] = args.get('--clocked-out-on-after')
+    if args.get('--clocked-out-before-on'):
+        list_args['clocked_out[lte]'] = args.get('--clocked-out-before-on')
+    if args.get('--sort-by'):
+        list_args['sort_by'] = args.get('--sort-by')
+    LOG.debug("list_time_punches args: %s", list_args)
     return list_args
 
 
-def get_time_punches(args, page_size=500):
-    "Page size: how many results to fetch from the API at a time"
+def list_time_punches(args):
+    "Use the 7shifts API to get a list of time punches based on CLI params"
     client = get_7shifts_client()
-    offset = 0
-    results = 0
-    while True:
-        LOG.debug(
-            "getting up to %d time_punches at offset %d",
-            page_size, offset)
-        time_punches = lib7shifts.list_punches(
-            client,
-            **build_list_time_punch_args(args, limit=page_size, offset=offset))
-        if time_punches:
-            for time_punch in time_punches:
-                if time_punch.approved:
-                    if args.get('--only-unapproved', False):
-                        continue
-                else:
-                    if not (args.get('--unapproved', False) or
-                            args.get('--only-unapproved', False)):
-                        continue
-                results += 1
-                yield time_punch
-            offset += len(time_punches)
-            continue
-        break
-    LOG.debug("returned %d time punches", results)
+    return lib7shifts.list_punches(
+        client, args.get('<company_id>'), **build_list_time_punch_args(args))
+
+
+def get_time_punch(args):
+    "Use the 7shifts API to get details about a specific time punch"
+    client = get_7shifts_client()
+    return lib7shifts.get_punch(
+        client, args.get('<company_id>'), args.get('<punch_id>'))
 
 
 def main(**args):
     """Run the cli-specified action (list, sync, init_schema)"""
     if args.get('list', False):
-        print_api_data(get_time_punches(args))
-    elif args.get('db', False):
-        sync_db = SyncPunches2Sqlite(
-            args.get('<sqlite_db>'),
-            dry_run=args.get('--dry-run'))
-        if args.get('sync', False):
-            sync_db.sync_to_database(get_time_punches(args))
-        elif args.get('init', False):
-            sync_db.init_db_schema()
-        else:
-            raise RuntimeError("no valid db action specified")
+        count = print_api_data(list_time_punches(args))
+        LOG.info("%d time punches found", count)
+    elif args.get('get'):
+        print_api_object(get_time_punch(args))
     else:
         raise RuntimeError("no valid action in args")
     return 0

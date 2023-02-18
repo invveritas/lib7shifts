@@ -1,8 +1,8 @@
 """
 API methods and objects related to 7Shifts Shifts.
 
-See https://www.7shifts.com/partner-api#toc-shifts for details about supported
-operations.
+See https://developers.7shifts.com/reference/listshift for details about
+supported operations.
 """
 from . import base
 from . import dates
@@ -11,12 +11,16 @@ from . import exceptions
 ENDPOINT = '/v2/company/{company_id}/shifts'
 
 
-def get_shift(client, company_id, shift_id):
+def get_shift(client, company_id, shift_id, **params):
     """Implements the 'Read' method from the 7shifts API for shifts.
-    Returns a :class:`Shift` object."""
-    response = client.read(ENDPOINT.format(company_id=company_id), shift_id)
+    Returns a :class:`Shift` object. Pass the following optional parameters:
+
+    - include_deleted: return a shift even if deleted (True or False)
+    """
+    response = client.read(
+        ENDPOINT.format(company_id=company_id), shift_id, fields=params)
     try:
-        return Shift(company_id, **response['data'], client=client)
+        return Shift(**response['data'], client=client)
     except KeyError:
         raise exceptions.EntityNotFoundError('Shift', shift_id)
 
@@ -30,29 +34,33 @@ def list_shifts(client, company_id, **kwargs):
     the following parameters supported by the API:
 
     - location_id: only get shifts for this location
-    - start[gte]: datetime or string time format (greater than/equal to)
-    - start[lte]: as above, but less than/equal to
-    - start[date]: a simple Y-m-d date string that shifts have to start
-        on/after
-    - department_id
-    - user_id
-    - deleted: whether or not to include deleted shifts in the results
-    - draft: whether or not to include un-published shifts in the results
-    - open: whether or not to ONLY retrieve shifts that are "open"
-    - limit: limit the number of results to be returned
-    - offset: return results starting from an offset
-    - order_field: the field to order results by, eg:
-        order_field=shift.modified
-    - order_dir: "asc" or "desc"
+    - shift_ids: a comma-separated list of shift IDs
+    - department_id: a specific department to search for
+    - department_ids: a list of department IDs to search for
+    - role_id: shifts for a specific role
+    - user_id: shifts for a specific user
+    - start[gte]: return shifts that start on or after the specified date. 
+                    datetime or string time format (greater than/equal to)
+    - start[lte]: as above, but shifts that start on or before the date.
+    - end[lte]: shifts that end before or on specified date
+    - end[gte]: shifts that end after or on the specified date
+    - deleted: boolean, whether to include deleted shifts in the results
+    - draft: boolean, include ONLY un-published shifts in the results.
+                        Overrides the deleted flag.
+    - include_draft: whether to include un-published shifts in results
+    - open: return ONLY shifts that are "open" (not assigned to a user)
+    - modified_since: a YYYY-MM-DD string, shifts modified on or after date
+    - sort_by: either 'start' or 'end' shift time
+    - sort_dir: either 'asc' or 'desc' for ascending/decending
 
     Returns a :class:`ShiftList` object containing :class:`Shift` objects.
     """
-    return ShiftList.from_api_data(
-        company_id,
-        base.page_api_get_results(
+    if 'limit' not in kwargs:
+        kwargs['limit'] = 500
+    for item in base.page_api_get_results(
             client, ENDPOINT.format(company_id=company_id),
-            **kwargs, limit=200),
-        client=client)
+            **kwargs):
+        yield Shift(**item, client=client)
 
 
 class Shift(base.APIObject):
@@ -61,9 +69,8 @@ class Shift(base.APIObject):
     Shift object defined in the API documentation.
     """
 
-    def __init__(self, company_id, **kwargs):
+    def __init__(self, **kwargs):
         super(Shift, self).__init__(**kwargs)
-        self.company_id = company_id
         self._user = None
         self._role = None
         self._location = None
@@ -140,19 +147,3 @@ class Shift(base.APIObject):
             self._department = departments.get_department(
                 self.department_id, client=self.client)
         return self._department
-
-
-class ShiftList(list):
-    """
-    An interable list of :class:`Shift` objects.
-    """
-
-    @classmethod
-    def from_api_data(cls, company_id, data, client=None):
-        """Provide this method with the shift data returned directly from
-        the API in raw format.
-        """
-        obj_list = []
-        for item in data:
-            obj_list.append(Shift(company_id, **item, client=client))
-        return cls(obj_list)

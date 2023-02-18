@@ -26,28 +26,32 @@ def list_punches(client, company_id, **kwargs):
     'client' parameter with an active :class:`lib7shifts.APIClient`
     object.
 
-    Supports the same kwargs as the API arguments, such as:
+    Supports the same optional kwargs as the API arguments, such as:
 
-    - clocked_in[gte] (datetime format optional)
-    - clocked_in[lte] (datetime format optional)
-    - clocked_out[gte] (datetime format optional)
-    - clocked_out[lte] (datetime format optional)
     - location_id
     - department_id
-    - limit
-    - offset
-    - order_field
-    - order_dir
+    - role_id
+    - user_id
+    - approved: boolean
+    - modified_since: return punches modified since the specified date
+    - clocked_in[gte]: return punches with clock-in on/after this date
+    - clocked_in[lte] return punches with clock-in before/on this date
+    - clocked_out[gte] return punches with clock-out on/after this date
+    - clocked_out[lte] return punches with clock-out before/on this date
+    - sort_by: name of the field and direction to sort by, ie. user_id.asc
 
-    See https://www.7shifts.com/partner-api#crud-toc-time-punches-list for
+    Note that datetime objects may be passed in for the clocked_in/clocked_out
+    parameters, as well as modified_since.
+
+    See https://developers.7shifts.com/reference/gettimepunches for
     details.
     """
-    return TimePunchList.from_api_data(
-        company_id,
-        base.page_api_get_results(
+    if 'limit' not in kwargs:
+        kwargs['limit'] = 500
+    for item in base.page_api_get_results(
             client, ENDPOINT.format(company_id=company_id),
-            **kwargs, limit=200),
-        client=client)
+            **kwargs):
+        yield TimePunch(**item, client=client)
 
 
 class TimePunch(base.APIObject):
@@ -70,9 +74,8 @@ class TimePunch(base.APIObject):
     the 7shifts API.
     """
 
-    def __init__(self, company_id, **kwargs):
+    def __init__(self, **kwargs):
         super(TimePunch, self).__init__(**kwargs)
-        self.company_id = company_id
         self._breaks = None
         self._user = None
         self._role = None
@@ -169,29 +172,11 @@ class TimePunch(base.APIObject):
         return self._breaks
 
 
-class TimePunchList(list):
-    """
-    Object representing a list of TimePunch objects, including vivifying
-    them from API response data.
-    """
-
-    @classmethod
-    def from_api_data(cls, company_id, data, client=None):
-        """Provide this method with the punch data returned directly from
-        the API in raw format.
-        """
-        obj_list = []
-        for item in data:
-            obj_list.append(TimePunch(company_id, **item, client=client))
-        return cls(obj_list)
-
-
 class TimePunchBreak(base.APIObject):
     "Represent a Time Punch Break"
 
-    def __init__(self, company_id, **kwargs):
+    def __init__(self, **kwargs):
         super(TimePunchBreak, self).__init__(**kwargs)
-        self.company_id = company_id
         self._user = None
 
     @property
@@ -240,5 +225,5 @@ class TimePunchBreakList(list):
         """
         obj_list = []
         for item in data:
-            obj_list.append(TimePunchBreak(company_id, **item, client=client))
+            obj_list.append(TimePunchBreak(**item, client=client))
         return cls(obj_list)
