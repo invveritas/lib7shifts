@@ -1,7 +1,12 @@
 lib7shifts
 ==========
 
-A library/CLI for interacting with the 7shifts REST API in Python3.
+A user-created library/CLI for interacting with the 7shifts REST API in
+Python3. This library is not officially supported or maintained by 7shifts, nor
+is its use endorsed by 7shifts. As a user-made library, no warranties or
+guarantees of future interoperability may be made, and features are included
+solely at the discretion of our package maintainer. If you would like to help
+us support and maintain this project, please reach out on Github.
 
 Before using this library, it's a good idea to be familiar with 7shifts,
 itself, and read the API documentation, here:
