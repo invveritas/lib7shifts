@@ -6,8 +6,8 @@ import datetime
 
 
 def filter_fields(items, output_fields, print_rows=False):
-    """Given a list of item dicts from 7shifts, yield a tuple per item with data
-    for insertion into a database or output as CSV"""
+    """Given a list of item dicts from 7shifts, yield a tuple per item with
+    data for insertion into a database or output as CSV"""
     for item in items:
         row = list()
         for field in output_fields:

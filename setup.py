@@ -10,7 +10,7 @@ def readme():
 
 setup(
     name='lib7shifts',
-    version="0.3",
+    version="1.0",
     description='Python 7shifts API client',
     long_description=readme(),
     author='Prairie Dog Brewing CANADA Inc',

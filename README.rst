@@ -1,17 +1,23 @@
 lib7shifts
 ==========
 
-A library/CLI for interacting with the 7shifts REST API in Python3.
+A user-created library/CLI for interacting with the 7shifts REST API in
+Python3. This library is not officially supported or maintained by 7shifts, nor
+is its use endorsed by 7shifts. As a user-made library, no warranties or
+guarantees of future interoperability may be made, and features are included
+solely at the discretion of our package maintainer. If you would like to help
+us support and maintain this project, please reach out on Github.
 
 Before using this library, it's a good idea to be familiar with 7shifts,
 itself, and read the API documentation, here:
 
-https://www.7shifts.com/partner-api
+https://developers.7shifts.com/reference/introduction
 
 Here's a quick example of the code usage::
 
     import lib7shifts
-    client = lib7shifts.get_client(api_key='YOURAPIKEYHERE')
+    # you can set your access token in ACCESS_TOKEN_7SHIFTS instead of below
+    client = lib7shifts.get_client(access_token='YOUR_TOKEN')
     for shift in lib7shifts.list_shifts(client, user_id=1000):
         print(shift)
 
@@ -23,20 +29,22 @@ This package includes modules for each of the objects represented by the
 - Company
 - Location
 - Department
+- Event (Scheduled)
 - Role
 - User
 - Shift
 - TimePunch
 - TimePunchBreak
-- Event
+- Wage
+- Receipt (sales records)
+- Reports (daily_sales_labour, hours_wages modules)
 
 The above are the object names in lib7shifts, and each object is designed to
-mimic the API object representations
-exactly, that is to say that they have the same attributes and generally the
-same data types (except date fields, which are converted to datetime
-objects). So if the API says that the ``User`` object has an attribute called
-*id*, then our ``User`` class also has an attribute called *id*, and the value
-is an integer. Similar for booleans, text fields, etc.
+mimic the API object representations, that is to say that they have the same
+attributes and generally the same data types (except date fields, which are
+converted to datetime objects). So if the API says that the ``User`` object has
+an attribute called *id*, then our ``User`` class also has an attribute called
+*id*, and the value is an integer. Similar for booleans, text fields, etc.
 
 Each object is a thin wrapper around an underlying dictionary provided by
 the API, but many have methods to make programming workflows simpler. For
@@ -52,7 +60,7 @@ access all of the objects programmatically.
 
 Generally speaking, print calls on objects results in a simple dictionary
 print of the underlying API data used to populate the object. Future code
-improvements should bring better support for serialized object representations.
+improvements could bring better support for serialized object representations.
 
 Functional Design Pattern
 -------------------------
@@ -69,11 +77,11 @@ start with the ``update_`` prefix. All of these functions take an
 ``APIClient7Shifts`` object as their first parameter, which is described in
 more detail further below.
 
-The 7shifts API supports the full gamut of CRUD operations for all object types
-except users (that is probably coming). Due to time constraints, this package
+The new 7shifts V2 API supports the full gamut of CRUD operations for all
+object types. Due to time constraints, this package
 doesn't yet have every CRUD operation supported for every object type, but
-it is trivial to add it now (see the ``lib7shifts.events`` module for an
-example of a complete CRUD implementation).
+it is trivial to add it now (see the ``lib7shifts.events`` and
+``lib7shifts.receipts`` module for examples of a complete CRUD implementation).
 
 All of the CRUD functions are imported directly into the main package scope,
 so you simply need to ``import lib7shifts`` to get access to all of them.
@@ -85,7 +93,12 @@ Before you can do anything, you need to obtain/initialize a
 ``lib7shifts.get_client`` function, as follows::
 
     import lib7shifts
-    client = lib7shifts.get_client(api_key='YOURAPIKEYHERE')
+    client = lib7shifts.get_client(access_token='YOUR_TOKEN')
+
+While a bearer token may be supplied directly as we show above, you can also
+supply that token by setting the *ACCESS_TOKEN_7SHIFTS* environment variable.
+Full OAUTH authentication workflows are not yet supported, but may be added
+with relative simplicity if needed.
 
 *APIClient7Shifts* contains the code that performs all of the
 low-level API interaction, including defining the underlying methods used
@@ -102,34 +115,41 @@ Here's an example of a workflows to perform all CRUD operations for events::
 
     # CREATE
     event_id = lib7shifts.create_event(
-        client, title='Some Event', description='A thing is happening',
-        date='2019-06-03', start='12:00:00', color='FBAF40',
-        location=[12345]) # location has to be a list
+        client, company_id=1234, title='Some Event',
+        description='A thing is happening',
+        start_date='2019-06-03', start_time='12:00:00',
+        end_date='2029-06-03', end_time='15:00:00', is_multi_day=False,
+        color='FBAF40', location_ids=[12345]) # location has to be a list
 
     # READ
-    event = lib7shifts.get_event(client, event_id)
+    event = lib7shifts.get_event(client, company_id, event_id)
     print(event)
-    # {'id': 664814, 'title': 'Some Event', 'description': 'A thing is happening', 'date': '2019-06-03', 'start': '12:00:00', 'all_day': False, 'color': 'FBAF40', 'created': '2019-06-20 08:34:40', 'modified': '2019-06-20 08:34:40'}
 
     # UPDATE
-    lib7shifts.update_event(client, event.id, date='2019-06-06', title='Testing')
+    event = lib7shifts.get_event(client, company_id, event_id)
+    lib7shifts.update_event(
+        client, company_id, event.id, start_date='2019-06-06', title='Testing',
+        start_time=event.start_time, end_date=event.end_date,
+        end_time=event.end_time, is_multi_day=event.is_multi_day)
 
     # DELETE
-    lib7shifts.delete_event(client, event.id)
+    lib7shifts.delete_event(client, company_id, event.id)
 
     # LIST
-    events = lib7shifts.list_events(client, date='2019-06-03')
+    events = lib7shifts.list_events(
+        client, company_id, location_id=1234,
+        start_date='2019-06-03', end_date='2019-06-04')
 
 Locations
 ---------
 Here are some examples::
 
     # List all 7shifts locations
-    for location in lib7shifts.list_locations(client):
+    for location in lib7shifts.list_locations(client, company_id):
         print(location)
 
     # Get a particular location
-    location = lib7shifts.get_location(client, 1234)
+    location = lib7shifts.get_location(client, company_id, 1234)
     print(location.address)
 
 
@@ -138,7 +158,7 @@ Departments
 Here's an example of looping over a list of departments to print their name and
 ID number::
 
-    for department in lib7shifts.list_departments(client):
+    for department in lib7shifts.list_departments(client, company_id):
         print("{:8d}: {}".format(department.id, department.name))
 
 Shifts
@@ -149,7 +169,7 @@ The *get* method is designed to find a shift based on a specified ID,
 whereas the *list* method finds all the shifts matching specified criteria. For
 example, here's how we find all the shifts for the user with ID 1000::
 
-    for shift in lib7shifts.list_shifts(client, user_id=1000):
+    for shift in lib7shifts.list_shifts(client, company_id, user_id=1000):
         print(shift)
 
 Note that we are printing a ``lib7shifts.shifts.Shift`` object in the for
@@ -159,7 +179,8 @@ Time Punches
 ------------
 This is a quick example of looping over time punches for a specific period::
 
-    for punch in lib7shifts.list_punches(client, **{'clocked_in[gte]':'2019-06-10'}):
+    for punch in lib7shifts.list_punches(
+            client, company_id, **{'clocked_in[gte]':'2019-06-10'}):
         print("{:8d} From:{} To:{} User ID: {}".format(
             punch.id, punch.clocked_in, punch.clocked_out, punch.user_id))
 
@@ -187,20 +208,18 @@ supported objects and switches. And use ``7shifts [object] --help`` for a
 list of options specific to the object type being queried.
 
 You will need to set up an environment variable called
-``API_KEY_7SHIFTS``, and populate it with your 7shifts API key, ensuring that
-the environment variable is present in the scope where you run these commands
-(generally, run ``export API_KEY_7SHIFTS=YOURAPIKEY`` in the shell environment
-where you run this command).
+*ACCESS_TOKEN_7SHIFTS*, and populate it with your 7shifts API key, ensuring
+that the environment variable is present in the scope where you run these
+commands (generally, run ``export ACCESS_TOKEN_7SHIFTS=YOUR_TOKEN`` in the
+shell environment where you run this command).
 
 Here's an example of dumping all the shifts for a specific department::
 
-    7shifts shift list --start=2019-07-01 --dept-id=93813
+    7shifts shift list 1234 --start=2019-07-01 --dept-id=93813 # 1234 = company
 
 In addition to the normal objects supported by the documented API, the 7shifts
-CLI also supports dumping sales and labour reports, which leverages an
-undocumented API endpoint (your mileage may vary)::
+CLI also supports dumping daily sales and labour reports::
 
-    7shifts daily_reports list --from=2019-06-01 --to=2019-06-30 \
-        --include-unapproved --location-id=12345
+    7shifts daily_sales_labor 12345 2019-06-01 2019-06-30 # 12345 = location id
 
 Hint: To get a list of your location ID's, use ``7shifts location list``.

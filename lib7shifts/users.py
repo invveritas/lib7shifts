@@ -3,43 +3,45 @@ Library for representing 7shifts Users.
 """
 from . import base
 from . import exceptions
-from .dates import to_local_date
 
-ENDPOINT = '/v1/users'
+ENDPOINT = '/v2/company/{company_id}/users'
 
 
-def get_user(client, user_id, **urlopen_kw):
+def get_user(client, company_id, user_id, **urlopen_kw):
     """Implements the 'Read' API in 7Shifts for the given `user_id`.
     Returns a :class:`User` object, or raises
     :class:`exceptions.EntityNotFoundError` if the user wasn't found.
-    For full user information, pass the following for **urlopen_kw:
-
-        {'deep': 1}
-
     """
-    response = client.read(ENDPOINT, user_id, **urlopen_kw)
+    response = client.read(ENDPOINT.format(company_id=company_id), user_id,
+                           **urlopen_kw)
     try:
         return User(**response['data'], client=client)
     except KeyError:
         raise exceptions.EntityNotFoundError('User', user_id)
 
 
-def list_users(client, **kwargs):
+def list_users(client, company_id, **kwargs):
     """Implements the 'List' operation for 7shifts users, returning all the
     users associated with the company you've authenticated with (by default).
 
-    Pass in an active :class:`lib7shifts.APIClient` object and any of the
-    following parameters supported by the API:
+    Pass in an active :class:`lib7shifts.APIClient` object, a company ID and
+    any of the following parameters supported by the API:
 
-    - limit: limit the number of results to be returned
-    - offset: return results starting from an offset
-    - order_field: a field to order results by, eg: order_field=shift.modified
-    - order_dir: "asc" or "desc"
+    - modified_since: a YYYY-MM-DD formatted string
+    - location_id (not compatible with department_id and role_id)
+    - department_id (not compatible with location_id and role_id)
+    - role_id (not compatible with location_id and department_id)
+    - status: either 'active' or 'inactive'
+    - name: filter by full or partial employee name
 
     Returns a :class:`UserList` object containing :class:`User` objects.
     """
-    response = client.list(ENDPOINT, fields=kwargs)
-    return UserList.from_api_data(response['data'], client=client)
+    if 'limit' not in kwargs:
+        kwargs['limit'] = 200
+    for item in base.page_api_get_results(
+            client, ENDPOINT.format(company_id=company_id),
+            **kwargs):
+        yield User(**item, client=client)
 
 
 class User(base.APIObject):
@@ -51,22 +53,7 @@ class User(base.APIObject):
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
         self._company = None
-
-    def __getattr__(self, name):
-        """
-        Because this class is passed a nested dictionary, the parent's
-        behaviour needs to be overloaded to look deeper in the dict to find its
-        attributes.
-        """
-        return self._api_data(name)
-
-    def _api_data(self, name):
-        """
-        This object wraps calls to the class's underlying data dictionary,
-        allowing us to abstract that dictionary away through layers of caching
-        etc.
-        """
-        return super(User, self)._api_data('user')[name]
+        self._wages = None
 
     @property
     def punch_code(self):
@@ -83,25 +70,25 @@ class User(base.APIObject):
     def is_employee(self):
         """Returns True if the user_type_id is 1 (employee) - doesn't include
         managers"""
-        if self.user_type_id == 1:
+        if self.type == "employee":
             return True
         return False
 
     def is_admin(self):
         "Returns True if the user_type_id is set to 2 (admin)"
-        if self.user_type_id == 2:
+        if self.type == "admin":
             return True
         return False
 
     def is_manager(self):
         "Returns True if the user_type_id is set to 3 (manager)"
-        if self.user_type_id == 3:
+        if self.type == "manager":
             return True
         return False
 
     def is_asst_manager(self):
         "Returns True if the user_type_id is set to 4 (asst mgr)"
-        if self.user_type_id == 4:
+        if self.type == "asst mgr":
             return True
         return False
 
@@ -126,129 +113,57 @@ class User(base.APIObject):
         same between the two methods."""
         if self._company is None:
             from . import companies
-            try:
-                self._company = companies.Company(
-                    **super(User, self)._api_data('company'),
-                    client=self.client)
-            except KeyError:
-                self._company = companies.get_company(
-                    self.client, self.company_id)
+            self._company = companies.get_company(
+                self.client, self.company_id)
         return self._company
 
     def get_departments(self):
-        """Return an iterable of :class:`lib7shifts.Department` objects that
-        apply to this user.
-
-        IMPORTANT: This method only works if the call to get this user included
-        the `deep` field, set to 1.
+        """raise NotImplementedError
         """
-        from . import departments
-        try:
-            for data in super(User, self)._api_data('department'):
-                yield departments.Department(**data, client=self.client)
-        except KeyError:
-            raise RuntimeError((
-                "Unable to get department information for user without"
-                " deep=1"))
+        raise NotImplementedError
 
     def get_locations(self):
-        """Return an iterable of :class:`lib7shifts.Location` objects that
-        apply to this user.
-
-        IMPORTANT: This method only works if the call to get this user included
-        the `deep` field, set to 1.
+        """raise NotImplementedError
         """
-        from . import locations
-        try:
-            for data in super(User, self)._api_data('location'):
-                yield locations.Location(**data, client=self.client)
-        except KeyError:
-            raise RuntimeError((
-                "Unable to get location information for user without"
-                " deep=1"))
+        raise NotImplementedError
 
     def get_permissions(self):
-        """Return a dictionary of permissions settings for this user.
-
-        IMPORTANT: This method only works if the call to get this user included
-        the `deep` field, set to 1.
+        """raise NotImplementedError
         """
-        try:
-            return super(User, self)._api_data('permission')
-        except KeyError:
-            raise RuntimeError((
-                "Unable to get permission information for user without"
-                " deep=1"))
+        raise NotImplementedError
 
     def get_roles(self):
-        """Return role information for the user, such as the name, department
-        id, etc. A :class:`lib7shifts.RoleList` object will be returned, since
-        users can have more than one role associated with them.
-
-        IMPORTANT: This method only works if the call to get this user included
-        the `deep` field, set to 1."""
-        try:
-            from . import roles
-            for data in super(User, self)._api_data('role'):
-                yield roles.Role(**data, client=self.client)
-        except KeyError:
-            raise RuntimeError(
-                "Unable to get role information for user without deep=1")
+        """raise NotImplementedError."""
+        raise NotImplementedError
 
     def get_wages(self):
         """Returns a dictionary of wage data for the user. This method utilizes
         an undocumented API endpoint - the same one used in the 7shifts UI."""
+        if self._wages is None:
+            from . import wages
+            self._wages = wages.list_user_wages(
+                self.client, self.company_id, self.id)
+        return self._wages
+
+    def list_assignments(self):
+        """Lists assigned locations, departments and roles for this user"""
+        return self.client.read(self._api_context, "assignments")['data']
+
+    def list_location_assignments(self):
+        """Lists the locations that the current user is assigned to"""
         return self.client.read(
-            "/v1/user/{:d}".format(self.id), "wages")['data']
+            self._api_context, "location_assignments")['data']
 
+    def list_department_assignments(self):
+        """Lists the departments that the current user is assigned to"""
+        return self.client.read(
+            self._api_context, "department_assignments")['data']
 
-class UserList(list):
-    """
-    An interable list of User objects.
-    """
+    def list_role_assignments(self):
+        """Lists the roles that the current user is assigned to"""
+        return self.client.read(
+            self._api_context, "role_assignments")['data']
 
-    @classmethod
-    def from_api_data(cls, data, client=None):
-        """Provide this method with the user data returned directly from
-        the API in raw format.
-        """
-        obj_list = []
-        for item in data:
-            obj_list.append(User(**item, client=client))
-        return cls(obj_list)
-
-
-class Wage(base.APIObject):
-    """Represent a wage in a general, easier to use way.
-
-    Populate with a dictionary of kwargs generally containing:
-    - user_id: int
-    - role_id: int (or None for salaried)
-    - effective_date: in YYYY-MM-DD string form
-    - wage_type: (either 'hourly' or 'weekly_salary')
-    - wage_cents: integer
-    """
-
-    def __init__(self, **kwargs):
-        super(Wage, self).__init__(**kwargs)
-        self.effective_date = to_local_date(kwargs.get('effective_date'))
-
-    @property
-    def per_hour(self):
-        """Returns the per-hour equivalent for this wage. If this is salaried
-        role, returns 0.0"""
-        if self.is_salary():
-            return 0.0
-        return self.wage_cents / 100.0
-
-    def is_hourly(self):
-        """Returns True if this is an hourly wage"""
-        if self.wage_type == "hourly":
-            return True
-        return False
-
-    def is_salary(self):
-        """Returns True if this is a salaried wage"""
-        if self.wage_type == "weekly_salary":
-            return True
-        return False
+    def _api_context(self):
+        """Returns an API context for the current user"""
+        return f"{ENDPOINT}/{self.id}"
