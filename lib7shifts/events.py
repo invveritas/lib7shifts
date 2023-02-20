@@ -27,7 +27,7 @@ def list_events(client, company_id, **kwargs):
         raise RuntimeError("end_date not provided for list_events, required")
     for item in client.list(ENDPOINT.format(
             company_id=company_id), fields=kwargs)['data']:
-        yield Event(**item, client=client)
+        yield Event(**item)
 
 
 def get_event(client, company_id, event_id):
@@ -36,7 +36,7 @@ def get_event(client, company_id, event_id):
     response = client.read(ENDPOINT.format(
         company_id=company_id), event_id)
     try:
-        return Event(**response['data'], client=client)
+        return Event(**response['data'])
     except KeyError:
         raise exceptions.EntityNotFoundError('Event', event_id)
 
@@ -136,9 +136,4 @@ class Event(base.APIObject):
     def start(self):
         "Returns a :class:`datetime.datetime` object for the start time"
         return dates.to_datetime(
-            "{} {}".format(self._api_data('date'), self._api_data('start')))
-
-    def get_locations(self):
-        "Returns an array of :class:`lib7shifts.locations.Location` objects"
-        return locations.LocationList.from_id_list(
-            self.location_ids, client=self.client)
+            "{} {}".format(self.get('date'), self.get('start')))

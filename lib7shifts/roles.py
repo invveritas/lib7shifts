@@ -15,7 +15,7 @@ def get_role(client, company_id, role_id):
     Returns a :class:`Role` object."""
     response = client.read(ENDPOINT.format(company_id=company_id), role_id)
     try:
-        return Role(**response['data'], client=client)
+        return Role(**response['data'])
     except KeyError:
         raise exceptions.EntityNotFoundError('Role', role_id)
 
@@ -38,7 +38,7 @@ def list_roles(client, company_id, **kwargs):
     for item in base.page_api_get_results(
             client, ENDPOINT.format(company_id=company_id),
             **kwargs):
-        yield Role(**item, client=client)
+        yield Role(**item)
 
 
 class Role(base.APIObject):
@@ -46,4 +46,3 @@ class Role(base.APIObject):
     Represents a 7shifts Role object, with all the same attributes as the
     Role object defined in the API documentation.
     """
-    pass

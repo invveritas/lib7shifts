@@ -52,7 +52,7 @@ def main(**args):
     """Run the cli-specified action (list, sync, init)"""
     if args.get('list', False):
         count = print_api_data(list_departments(args))
-        LOG.info("%d departments found")
+        LOG.info("%d departments found", count)
     elif args.get('get', False):
         print_api_object(get_department(args))
     else:

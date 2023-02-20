@@ -15,7 +15,7 @@ def get_location(client, company_id, location_id):
     :class:`Location` object."""
     response = client.read(ENDPOINT.format(company_id=company_id), location_id)
     try:
-        return Location(**response['data'], client=client)
+        return Location(**response['data'])
     except KeyError:
         raise exceptions.EntityNotFoundError('Location', location_id)
 
@@ -32,7 +32,7 @@ def list_locations(client, company_id, **kwargs):
         kwargs['limit'] = 100
     for item in base.page_api_get_results(
             client, ENDPOINT.format(company_id=company_id), **kwargs):
-        yield Location(**item, client=client)
+        yield Location(**item)
 
 
 class Location(base.APIObject):

@@ -14,7 +14,7 @@ def print_api_item(item):
 
 def print_api_object(item):
     """Pretty-print an object from the API client library"""
-    print(json.dumps(json.loads(item.__str__()), indent=2))
+    print(json.dumps(item, indent=2))
 
 
 def print_api_data(data):
@@ -24,7 +24,7 @@ def print_api_data(data):
     count = 0
     try:
         for row in data:
-            print(json.dumps(json.loads(row.__str__()), indent=2))
+            print_api_item(row)
             count += 1
     except TypeError:
         print_api_item(data)

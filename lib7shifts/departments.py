@@ -17,7 +17,7 @@ def get_department(client, company_id, department_id):
     response = client.read(ENDPOINT.format(company_id=company_id),
                            department_id)
     try:
-        return Department(**response['data'], client=client)
+        return Department(**response['data'])
     except KeyError:
         raise exceptions.EntityNotFoundError('Department', department_id)
 
@@ -39,7 +39,7 @@ def list_departments(client, company_id, **kwargs):
         kwargs['limit'] = 100
     for item in base.page_api_get_results(
             client, ENDPOINT.format(company_id=company_id), **kwargs):
-        yield Department(**item, client=client)
+        yield Department(**item)
 
 
 class Department(base.APIObject):

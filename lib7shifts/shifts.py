@@ -60,7 +60,7 @@ def list_shifts(client, company_id, **kwargs):
     for item in base.page_api_get_results(
             client, ENDPOINT.format(company_id=company_id),
             **kwargs):
-        yield Shift(**item, client=client)
+        yield Shift(**item)
 
 
 class Shift(base.APIObject):
@@ -110,40 +110,40 @@ class Shift(base.APIObject):
             return True
         return False
 
-    def get_user(self):
+    def get_user(self, client):
         """Return a :class:`lib7shfits.users.User` class for the user
         associated with this shift.
         An API fetch will be used to fetch this data (once)"""
         if self._user is None:
             from . import users
-            self._user = users.get_user(self.user_id, client=self.client)
+            self._user = users.get_user(self.user_id, client=client)
         return self._user
 
-    def get_role(self):
+    def get_role(self, client):
         """Return a :class:`lib7shifts.roles.Role` object for the role
         specified by the shift.
         An API fetch will be used to fulfill this call."""
         if self._role is None:
             from . import roles
-            self._role = roles.get_role(self.role_id, client=self.client)
+            self._role = roles.get_role(self.role_id, client=client)
         return self._role
 
-    def get_location(self):
+    def get_location(self, client):
         """Returns a :class:`lib7shifts.locations.Location` object
         corresponding to the location of the shift.
         An API fetch will be used to fetch this data (once)"""
         if self._location is None:
             from . import locations
             self._location = locations.get_location(
-                self.location_id, client=self.client)
+                self.location_id, client=client)
         return self._location
 
-    def get_department(self):
+    def get_department(self, client):
         """Returns a :class:`lib7shifts.departments.Department` object
         corresponding to the shift.
         An API fetch will be used to fetch this data (once)"""
         if self._department is None:
             from . import departments
             self._department = departments.get_department(
-                self.department_id, client=self.client)
+                self.department_id, client=client)
         return self._department

@@ -25,35 +25,26 @@ def page_api_get_results(client, endpoint, **kwargs):
         kwargs['cursor'] = next
 
 
-class APIObject():
+class APIObject(dict):
     """
-    Define an object that is populated with data about the entity being
-    represented, directly from the API (API key-value pairs are constructor
-    arguments). Optionally, pass an :class:`lib7shifts.APIClient`
-    to the constructor as the :attr:`client` kwarg to enable real-time fetches
-    of object-related references (fetch methods must be implemented in sub-
-    classes)
+    Define a dict-like object that is populated with data about the entity
+    being represented, directly from the API (API key-value pairs are
+    constructor arguments).
     """
 
-    def __init__(self, **kwargs):
-        self._client = kwargs.pop('client', None)
-        self.__data = kwargs
-
-    @property
-    def client(self):
-        "Returns a reference to the configured API Client"
-        return self._client
+    def __init__(self, *args, **kwargs):
+        super(APIObject, self).__init__(*args, **kwargs)
 
     @property
     def created(self):
         "Returns a :class:`datetime.datetime` object for shift creation time"
-        return dates.to_datetime(self._api_data('created'))
+        return dates.to_datetime(self.get('created'))
 
     @property
     def modified(self):
         """Returns a :class:`datetime.datetime` object corresponding to the
         last time this shift was modified"""
-        return dates.to_datetime(self._api_data('modified'))
+        return dates.to_datetime(self.get('modified'))
 
     def refresh(self):
         """Full CRUD implementations need to ensure that objects can be
@@ -69,9 +60,10 @@ class APIObject():
         """
         This object wraps calls to the class's underlying data dictionary,
         allowing us to abstract that dictionary away through layers of caching
-        etc.
+        etc. *Note: This is here only for backwards compatibility with older
+        code*.
         """
-        return self.__data[name]
+        return self.get(name)
 
     def _update_api_data(self, new_data):
         """
@@ -82,18 +74,4 @@ class APIObject():
 
         Should only be called from within an object or its descendants.
         """
-        self.__data = new_data
-
-    def __getattr__(self, name):
-        """
-        Handy method for exposing all of the API properties without creating
-        object attributes for them all in advance (new API attributes can show
-        up at any time). This method is only called if the object doesn't
-        already have an attribute of ``name``, so not a risk of breaking the
-        object and thus, we can add attributes to override this behaviour, as
-        well.
-        """
-        return self._api_data(name)
-
-    def __str__(self):
-        return json.dumps(self.__data)
+        raise NotImplementedError

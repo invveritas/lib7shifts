@@ -19,8 +19,8 @@ def list_user_wages(client, company_id, user_id, **urlopen_kw):
         **urlopen_kw)
     try:
         return (
-            WageList(response['data']['current_wages'], client=client),
-            WageList(response['data']['upcoming_wages'], client=client))
+            WageList(response['data']['current_wages']),
+            WageList(response['data']['upcoming_wages']))
     except KeyError:
         raise exceptions.EntityNotFoundError('WageList', user_id)
 
@@ -38,7 +38,7 @@ class Wage(base.APIObject):
 
     def __init__(self, **kwargs):
         super(Wage, self).__init__(**kwargs)
-        self.effective_date = to_local_date(kwargs.get('effective_date'))
+        self.effective_date = to_local_date(self.get('effective_date'))
 
     @property
     def per_hour(self):
@@ -67,11 +67,11 @@ class WageList(list):
     """
 
     @classmethod
-    def from_api_data(cls, data, client=None):
+    def from_api_data(cls, data):
         """Provide this method with the user data returned directly from
         the API in raw format.
         """
         obj_list = []
         for item in data:
-            obj_list.append(Wage(**item, client=client))
+            obj_list.append(Wage(**item))
         return cls(obj_list)

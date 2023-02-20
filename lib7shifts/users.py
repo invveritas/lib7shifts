@@ -15,7 +15,7 @@ def get_user(client, company_id, user_id, **urlopen_kw):
     response = client.read(ENDPOINT.format(company_id=company_id), user_id,
                            **urlopen_kw)
     try:
-        return User(**response['data'], client=client)
+        return User(**response['data'])
     except KeyError:
         raise exceptions.EntityNotFoundError('User', user_id)
 
@@ -41,7 +41,7 @@ def list_users(client, company_id, **kwargs):
     for item in base.page_api_get_results(
             client, ENDPOINT.format(company_id=company_id),
             **kwargs):
-        yield User(**item, client=client)
+        yield User(**item)
 
 
 class User(base.APIObject):
@@ -104,7 +104,7 @@ class User(base.APIObject):
             return True
         return False
 
-    def get_company(self):
+    def get_company(self, client):
         """Return a :class:`lib7shfits.companies.Company` object
         associated with this user. If the initial request to get this user
         returned company data, that data will be used to populate the company
@@ -114,7 +114,7 @@ class User(base.APIObject):
         if self._company is None:
             from . import companies
             self._company = companies.get_company(
-                self.client, self.company_id)
+                client, self.company_id)
         return self._company
 
     def get_departments(self):
@@ -136,13 +136,13 @@ class User(base.APIObject):
         """raise NotImplementedError."""
         raise NotImplementedError
 
-    def get_wages(self):
+    def get_wages(self, client):
         """Returns a dictionary of wage data for the user. This method utilizes
         an undocumented API endpoint - the same one used in the 7shifts UI."""
         if self._wages is None:
             from . import wages
             self._wages = wages.list_user_wages(
-                self.client, self.company_id, self.id)
+                client, self.company_id, self.id)
         return self._wages
 
     def list_assignments(self):

@@ -16,7 +16,7 @@ def get_receipt(client, company_id, receipt_id):
     response = client.read(ENDPOINT.format(company_id=company_id),
                            receipt_id)
     try:
-        return Receipt(**response['data'], client=client)
+        return Receipt(**response['data'])
     except KeyError:
         raise exceptions.EntityNotFoundError('Receipt', receipt_id)
 
@@ -90,7 +90,7 @@ def list_receipts(client, company_id, **kwargs):
         kwargs['limit'] = 100
     for item in base.page_api_get_results(
             client, ENDPOINT.format(company_id=company_id), **kwargs):
-        yield Receipt(**item, client=client)
+        yield Receipt(**item)
 
 
 def create_receipt(client, company_id, **kwargs):
