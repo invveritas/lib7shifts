@@ -141,9 +141,9 @@ class APIClient7Shifts(object):
             # print('item: {}'.format(key))
             if isinstance(val, bool):
                 if val:
-                    fields[key] = 1
+                    fields[key] = 'true'
                 else:
-                    fields[key] = 0
+                    fields[key] = 'false'
             elif isinstance(val, datetime.datetime):
                 fields[key] = dates.from_datetime(val)
             else:
