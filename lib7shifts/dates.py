@@ -101,3 +101,11 @@ def to_y_m_d(dt_obj):
 def to_h_m_s(dt_obj):
     """Outputs just the time-portion of a datetime object in HH:MM:SS form"""
     return dt_obj.strftime("%H:%M:%S")
+
+
+def datetime_to_human_date(dt_obj):
+    return dt_obj.strftime('%Y-%m-%d')
+
+
+def datetime_to_human_datetime(dt_obj):
+    return dt_obj.strftime('%Y-%m-%d %H:%M:%S')

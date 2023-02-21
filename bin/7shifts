@@ -2,28 +2,36 @@
 """
 usage: 7shifts [options] <command> [<args>...]
 
-A tool for experimenting with the 7shifts API, demonstrating some of the
+A tool for reading data from the 7shifts API, demonstrating some of the
 capabilities of this library. Read-based tasks are supported, such as get/list,
 but all operations to alter data must be achieved in Python code, directly
-using the 7shifts library.
+using the 7shifts library. The 7shifts sync command is used for migrating
+7shifts data into a data warehouse (SQL database). All commands support their
+own help with the -h argument.
 
 options:
-    -h --help         Show this screen
-    -v --version      Show version information
-    -d --debug        Enable debug logging (low-level)
+
+  -h --help             Show this screen
+  -v --version          Show version information
+  -d --debug            Enable debug logging (low-level)
+  --debug-db            Enable database debug logging (for sync commands)
+  -l --log=FILE         Specify an output log file (instead of stderr),
+                        relative to <workdir> if not absolute
+  --append-log          Append instead of replacing logfile
 
 commands:
     company     get/list company data from the API
+    daily_sales_labor  get daily sales and labour data from the API
     department  get/list department data from the API
-    location    get/list location data from the API
     event       get/list schedule event data from API
+    location    get/list location data from the API
     receipt     get/list sales receipt data from the API
     role        get/list role data from the API
     shift       get/list shift data from the API
+    sync        synchronize data from 7shifts into a database
     time_punch  get/list time punch data from the API
     user        get/list user data from the API
     wage        get/list user wage data from the API
-    daily_sales_labor  get daily sales and labour data from the API
     whoami      retrieve identity information for the current access token
     help        show this screen
 
@@ -41,7 +49,7 @@ import importlib
 from docopt import docopt
 
 VALID_CMDS = (
-    'company', 'department', 'location', 'event', 'role', 'shift',
+    'company', 'department', 'location', 'event', 'role', 'shift', 'sync',
     'receipt', 'time_punch', 'user', 'wage', 'daily_sales_labor', 'whoami')
 
 
@@ -61,14 +69,21 @@ def main(**args):
 
 
 if __name__ == '__main__':
-    ARGS = docopt(__doc__, version='7shifts2sqlite', options_first=True)
-    logging.basicConfig()
-    if ARGS['--debug'] or \
-            '-d' in ARGS['<args>'] or '--debug' in ARGS['<args>']:
-        logging.getLogger().setLevel(logging.DEBUG)
-        logging.getLogger('lib7shifts').setLevel(logging.DEBUG)
-    else:
+    ARGS = docopt(__doc__, version='1.0', options_first=True)
+    LOG_FORMAT = '%(asctime)s %(name)s %(message)s'
+    LOG_DATE_FORMAT = '%Y-%m-%d %I:%M:%S'
+    LOG_MODE = 'w'
+    if ARGS.get('--append-log'):
+        LOG_MODE = 'a+'
+    ROOT_LOG_LEVEL = logging.INFO
+    if ARGS.get('--debug', False):
+        ROOT_LOG_LEVEL = logging.DEBUG
+    logging.basicConfig(
+        filename=ARGS.get('--log', None), filemode=LOG_MODE,
+        level=ROOT_LOG_LEVEL, format=LOG_FORMAT,
+        datefmt=LOG_DATE_FORMAT)
+    if ROOT_LOG_LEVEL != logging.DEBUG:
         logging.getLogger('lib7shifts').setLevel(logging.INFO)
-    logging.getLogger('lib7shifts.7shifts').debug(
+    logging.getLogger('lib7shifts.cli.7shifts').debug(
         'started with args: %s', ARGS)
     sys.exit(main(**ARGS))
