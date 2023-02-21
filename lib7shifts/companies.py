@@ -14,7 +14,7 @@ def get_company(client, company_id):
     Returns a :class:`Company` object."""
     response = client.read(ENDPOINT, company_id)
     try:
-        return Company(**response['data'])
+        return Company(**response)
     except KeyError:
         raise exceptions.EntityNotFoundError('Company', company_id)
 
