@@ -27,11 +27,12 @@ def list_roles(client, company_id, **kwargs):
     Pass in an active :class:`lib7shifts.APIClient` object and any of the
     following parameters supported by the API:
 
-    - order_field: the field to order results by, eg:
-        order_field=shift.modified
-    - order_dir: "asc" or "desc"
+    - location_id:      an optional location to narrow down on
+    - department_id:    an optional department to narrow down on
+    - modified_since:   a YYYY-MM-DD formatted date to find records changed
+                        after
 
-    Returns a :class:`RoleList` object containing :class:`Role` objects.
+    Returns an iterable of :class:`Role` objects.
     """
     if 'limit' not in kwargs:
         kwargs['limit'] = 200
