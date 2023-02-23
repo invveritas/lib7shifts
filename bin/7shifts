@@ -9,12 +9,12 @@ using the 7shifts library. The 7shifts sync command is used for migrating
 7shifts data into a data warehouse (SQL database). All commands support their
 own help with the -h argument.
 
-options:
+options (must preceed <command>):
 
   -h --help             Show this screen
   -v --version          Show version information
-  -d --debug            Enable debug logging (low-level)
-  --debug-db            Enable database debug logging (for sync commands)
+  -d --debug            Enable module-level debug logging
+  --debug-api           Enable API-level debug logging (http requests)
   -l --log=FILE         Specify an output log file (instead of stderr),
                         relative to <workdir> if not absolute
   --append-log          Append instead of replacing logfile
@@ -75,15 +75,16 @@ if __name__ == '__main__':
     LOG_MODE = 'w'
     if ARGS.get('--append-log'):
         LOG_MODE = 'a+'
-    ROOT_LOG_LEVEL = logging.INFO
-    if ARGS.get('--debug', False):
-        ROOT_LOG_LEVEL = logging.DEBUG
+    PACKAGE_LOG_LEVEL = logging.INFO
+    if ARGS.get('--debug'):
+        PACKAGE_LOG_LEVEL = logging.DEBUG
     logging.basicConfig(
         filename=ARGS.get('--log', None), filemode=LOG_MODE,
-        level=ROOT_LOG_LEVEL, format=LOG_FORMAT,
+        level=logging.INFO, format=LOG_FORMAT,
         datefmt=LOG_DATE_FORMAT)
-    if ROOT_LOG_LEVEL != logging.DEBUG:
-        logging.getLogger('lib7shifts').setLevel(logging.INFO)
+    if ARGS.get('--debug-api'):
+        logging.getLogger('urllib3').setLevel(logging.DEBUG)
+    logging.getLogger('lib7shifts').setLevel(PACKAGE_LOG_LEVEL)
     logging.getLogger('lib7shifts.cli.7shifts').debug(
         'started with args: %s', ARGS)
     sys.exit(main(**ARGS))

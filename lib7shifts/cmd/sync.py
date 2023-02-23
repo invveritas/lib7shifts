@@ -32,15 +32,10 @@ Dates are in YYYY-MM-DD format. If neither --modified-since or --start-date
 are set, then the date is assumed to be yesterday from 12:00 AM to 11:59 PM.
 The url format for --db needs 4 slashes for on-disk paths on *Nix systems.
 
-General Options:
+General options:
 
   -h --help             Show this screen
-  -v --version          Show version information
-  -d --debug            Enable debug logging (low-level)
   --debug-db            Enable database debug logging
-  -l --log=FILE         Specify an output log file (instead of stderr),
-                        relative to <workdir> if not absolute
-  --append-log          Append instead of replacing logfile
 
 You will also need to provide a 7shifts API token with an environment
 variable called ACCESS_TOKEN_7SHIFTS.
@@ -117,29 +112,62 @@ def parse_dates(args):
     return retval
 
 
+def db_upsert(table, data_frame, tmp_table_prefix='upsert_tmp_'):
+    """Not all DB's support upsert operations, and Pandas' to_sql() method
+    does not support upsert, regardless. Implement our own upsert by storing
+    rows in a temporary table and removing duplicates (based on primary key),
+    then inserting from the temporary table to the final destination. This
+    method will raise an exception if the supplied data frame has no column
+    index name(s) defined. The first data frame index is assumed to be primary.
+
+    If more than 5,000 rows are provided in the dataframe, a warning
+    will be issued (Python logging framework).
+    """
+    if not sqlalchemy.inspect(get_db()).has_table(table):
+        with get_db().begin() as conn:
+            return data_frame.to_sql(table, conn, if_exists='replace')
+    if len(data_frame) > 5000:
+        logger().warn("%d rows supplied to db_upsert, recommend < 5000",
+                      len(data_frame))
+    keys = []
+    if type(data_frame.index) is pandas.MultiIndex:
+        keys.extend(data_frame.index.names)
+    elif data_frame.index.name:
+        keys.append(data_frame.index.name)
+    assert keys, \
+        f"no keys could be discerned for {table} data frame (no index name)"
+    tmp_table = f"{tmp_table_prefix}{table}"
+    query = f'DELETE FROM {table} WHERE '
+    query += f"{keys[0]} IN (SELECT {keys[0]} FROM {tmp_table})"
+    logger().debug("upsert query: %s", query)
+    conn = get_db().connect()
+    with conn.begin():
+        # This is not thread safe -- wrap in a lock if threads are expected.
+        # If multiple processes will be doing upserts, use a random table
+        # name and clean up afterwards (including upon exception handling)
+        data_frame.to_sql(tmp_table, conn, if_exists='replace')
+        conn.execute(sqlalchemy.text(query))  # delete rows to be upserted
+        conn.execute(sqlalchemy.text(f'DROP TABLE {tmp_table}'))
+        return data_frame.to_sql(table, conn, if_exists='append')
+
+
 def get_one_company_data(company_id):
-    data = pandas.DataFrame.from_dict([
+    return pandas.DataFrame.from_dict([
         lib7shifts.get_company(get_7shifts(), company_id), ])
-    if len(data) > 0:
-        data.set_index('id', drop=True, inplace=True)
-    logger().debug("retrieved %d rows with %d columns for company id %d",
-                   *data.shape, company_id)
-    return data
 
 
 def get_all_company_data():
-    data = pandas.DataFrame.from_dict(
+    return pandas.DataFrame.from_dict(
         lib7shifts.list_companies(get_7shifts()))
-    if len(data) > 0:
-        data.set_index('id', drop=True, inplace=True)
-    logger().debug("retrieved %d companies with %d total fields", *data.shape)
-    return data
 
 
 def sync_company_data(company):
-    with get_db().begin() as conn:
+    logger().debug("syncing %d companies", len(company))
+    if len(company) > 0:
+        company.set_index('id', drop=True, inplace=True)
         clean = company.drop(columns=['meta', ])
-        return clean.to_sql('companies', conn, if_exists='replace')
+        return db_upsert('companies', clean)
+    return 0
 
 
 def get_location_data(company_id, date_args={}):
@@ -152,13 +180,13 @@ def get_location_data(company_id, date_args={}):
 
 def sync_location_data(company_id, date_args):
     data = get_location_data(company_id, date_args)
+    logger().debug(
+        "retrieved %d location records for company %d",
+        len(data), company_id)
     if len(data) > 0:
         data.set_index('id', drop=True, inplace=True)
-    logger().debug(
-        "retrieved %d location records with %d fields for company %d",
-        *data.shape, company_id)
-    with get_db().begin() as conn:
-        return data.to_sql('locations', conn, if_exists='replace')
+        return db_upsert('locations', data)
+    return 0
 
 
 def get_department_data(company_id, date_args):
@@ -171,13 +199,13 @@ def get_department_data(company_id, date_args):
 
 def sync_deparment_data(company_id, date_args):
     data = get_department_data(company_id, date_args)
+    logger().debug(
+        "retrieved %d department records for company %d",
+        len(data), company_id)
     if len(data) > 0:
         data.set_index('id', drop=True, inplace=True)
-    logger().debug(
-        "retrieved %d department records with %d fields for company %d",
-        *data.shape, company_id)
-    with get_db().begin() as conn:
-        return data.to_sql('departments', conn, if_exists='replace')
+        return db_upsert('departments', data)
+    return 0
 
 
 def get_role_data(company_id, date_args):
@@ -199,19 +227,18 @@ def get_role_data(company_id, date_args):
 
 def sync_role_data(company_id, date_args):
     roles, stations = get_role_data(company_id, date_args)
+    logger().debug(
+        "retrieved %d roles for company %d (%d stations)",
+        len(roles), len(stations), company_id)
+    rolecount, stationcount = (0, 0)
     if len(roles) > 0:
         roles.drop(columns=['stations', ], inplace=True)
         roles.set_index('id', drop=True, inplace=True)
+        rolecount = db_upsert('roles', roles)
     if len(stations) > 0:
         stations.set_index('id', drop=True, inplace=True)
-    logger().debug(
-        "retrieved %d roles with %d fields for company %d (%d stations)",
-        *roles.shape, stations.shape[0], company_id)
-    with get_db().begin() as conn:
-        return (
-            roles.to_sql('roles', conn, if_exists='replace'),
-            stations.to_sql('stations', conn, if_exists='replace')
-        )
+        stationcount = db_upsert('stations', stations)
+    return (rolecount, stationcount)
 
 
 def get_user_data(company_id, date_args, status):
@@ -224,18 +251,18 @@ def get_user_data(company_id, date_args, status):
 
 def sync_user_data(company_id, date_args, status='active'):
     data = get_user_data(company_id, date_args, status)
+    logger().debug(
+        "retrieved %d user records for company %d",
+        len(data), company_id)
     if len(data) > 0:
         data.set_index('id', drop=True, inplace=True)
-    logger().debug(
-        "retrieved %d user records with %d fields for company %d",
-        *data.shape, company_id)
-    with get_db().begin() as conn:
-        return data.to_sql('users', conn, if_exists='replace')
+        return db_upsert('users', data)
+    return 0
 
 
 def get_user_wage_data(company_id, user_id):
     data = lib7shifts.list_user_wages(get_7shifts(), company_id, user_id)
-    wages = data[0]
+    wages = list(data[0])
     wages.extend(data[1])
     return pandas.DataFrame.from_dict(wages)
 
@@ -244,16 +271,15 @@ def sync_wage_data(company_id, date_args, status='active'):
     # wage data is sought on a per-user basis
     users = get_user_data(company_id, date_args, status)
     updated = 0
-    with get_db().begin() as conn:
-        for user in users.itertuples():
-            wages = get_user_wage_data(company_id, user.id)
-            if len(wages) > 0:
-                wages.set_index('id', drop=True, inplace=True)
-            logger().debug(
-                "retrieved %d wage records for user %s %s (id: %d)",
-                wages.shape[0], user.first_name, user.last_name, user.id)
-            updated += wages.to_sql('wages', conn, if_exists='replace')
-        return updated
+    for user in users.itertuples():
+        wages = get_user_wage_data(company_id, user.id)
+        logger().debug(
+            "retrieved %d wage records for user %s %s (id: %d)",
+            len(wages), user.first_name, user.last_name, user.id)
+        if len(wages) > 0:
+            wages.set_index('id', drop=True, inplace=True)
+            updated += db_upsert('wages', wages)
+    return updated
 
 
 def get_receipt_data(company_id, location_id, date_args):
@@ -268,36 +294,36 @@ def get_receipt_data(company_id, location_id, date_args):
     return lib7shifts.list_receipts(get_7shifts(), company_id, **kwargs)
 
 
-def _sync_receipt_chunk(connection, chunk):
+def _sync_receipt_chunk(chunk):
     frame = pandas.DataFrame.from_dict(chunk)
+    logger().info('writing %d receipt records', len(frame))
     if len(frame) > 0:
         frame.drop(
             columns=['receipt_lines', 'tip_details'], inplace=True)
         frame.set_index('id', drop=True, inplace=True)
-    logger().info('writing %d receipt records', len(frame))
-    return frame.to_sql('receipts', connection, if_exists='replace')
+        return db_upsert('receipts', frame)
+    return 0
 
 
 def sync_receipt_data(company_id, date_args, chunk_size=1000):
     # location data is required for receipts
     locations = get_location_data(company_id)
     written = 0
-    with get_db().begin() as conn:
-        for location in locations.itertuples():
-            logger().info('gathering receipt data for location: %s',
-                          location.name)
-            chunk = []
-            data = get_receipt_data(company_id, location.id, date_args)
-            while True:
-                try:
-                    chunk.append(next(data))
-                except StopIteration:
-                    written += _sync_receipt_chunk(conn, chunk)
-                    break
-                else:
-                    if len(chunk) >= chunk_size:
-                        written += _sync_receipt_chunk(conn, chunk)
-                        del chunk[:]
+    for location in locations.itertuples():
+        logger().info('gathering receipt data for location: %s',
+                      location.name)
+        chunk = []
+        data = get_receipt_data(company_id, location.id, date_args)
+        while True:
+            try:
+                chunk.append(next(data))
+            except StopIteration:
+                written += _sync_receipt_chunk(chunk)
+                break
+            else:
+                if len(chunk) >= chunk_size:
+                    written += _sync_receipt_chunk(chunk)
+                    del chunk[:]
     return written
 
 
@@ -317,15 +343,14 @@ def sync_shift_data(company_id, dates):
     database.
     """
     data = get_shift_data(company_id, dates)
+    logger().info(
+        "retrieved %d shifts for company %d based on specified parameters",
+        len(data), company_id)
     if len(data) > 0:
         data.drop(columns=['breaks', ], inplace=True)
         data.set_index('id', drop=True, inplace=True)
-    logger().info(
-        "retrieved %d shifts with %d total fields for company %d",
-        *data.shape, company_id)
-    with get_db().begin() as conn:
-        return data.to_sql(
-            'shifts', conn, if_exists='replace', chunksize=500)
+        return db_upsert('shifts', data)
+    return 0
 
 
 def get_punch_data(company_id, date_args, approved=None):
@@ -346,16 +371,14 @@ def sync_punch_data(company_id, dates, approved=True):
     database.
     """
     data = get_punch_data(company_id, dates, approved=approved)
+    logger().info(
+        "retrieved %d time punch rows for company %d with specified params",
+        len(data), company_id)
     if len(data) > 0:
         data.set_index('id', drop=True, inplace=True)
-    logger().info(
-        "retrieved %d time punch rows with %d total fields for company %d",
-        *data.shape, company_id)
-    with get_db().begin() as conn:
         clean = data.drop(columns=['breaks', ])  # breaks can't insert directly
-        return clean.to_sql(
-            'time_punches', conn, if_exists='replace', chunksize=500)
-    # TODO: Breaks
+        return db_upsert('time_punches', clean)  # TODO: Breaks
+    return 0
 
 
 def get_daily_sales_and_labor_data(kwargs={}):
@@ -379,24 +402,27 @@ def sync_daily_sales_and_labor_data(company_id, dates):
     # location data is required for daily sales and labour
     locations = get_location_data(company_id)
     written = 0
-    with get_db().begin() as conn:
-        for location in locations.itertuples():
-            kwargs['location_id'] = location.id
-            data = get_daily_sales_and_labor_data(kwargs)
-            if len(data) > 0:
-                data['location_id'] = location.id
-                data.set_index(['location_id', 'date'],
-                               drop=True, inplace=True)
-            logger().info(
-                "found %d sales + labour records for company %d, location %d",
-                data.shape[0], company_id, location.id)
-            written += data.to_sql(
-                'daily_sales_and_labor', conn, if_exists='replace')
+    for location in locations.itertuples():
+        kwargs['location_id'] = location.id
+        data = get_daily_sales_and_labor_data(kwargs)
+        logger().info(
+            "found %d sales + labour records for company %d, location %s",
+            len(data), company_id, location.name)
+        if len(data) > 0:
+            data['location_id'] = location.id
+            # upserts require a single unique index, this helps with that
+            data['index_col'] = data.apply(
+                lambda r: f'{r.location_id}-{r.date}', 1)
+            data.set_index(['index_col', 'location_id', 'date'],
+                           drop=True, inplace=True)
+            written += db_upsert('daily_sales_and_labor', data)
     return written
 
 
 def main(**args):
-    get_db(args.get('--db'), args.get('--debug-db'))
+    if args.get('--debug-db'):
+        logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
+    get_db(args.get('--db'))
     dates = parse_dates(args)
     companies = None
     if args.get('--company-id'):
@@ -408,41 +434,41 @@ def main(**args):
     for company in companies.itertuples():
         if args.get('all') or args.get('locations'):
             logger().info("Synced %d locations",
-                          sync_location_data(company.Index, dates))
+                          sync_location_data(company.id, dates))
         if args.get('all') or args.get('deparments'):
             logger().info("Synced %d departments",
-                          sync_deparment_data(company.Index, dates))
+                          sync_deparment_data(company.id, dates))
         if args.get('all') or args.get('roles'):
             logger().info("Synced %d roles with %d stations",
-                          *sync_role_data(company.Index, dates))
+                          *sync_role_data(company.id, dates))
         if args.get('all') or args.get('users'):
             logger().info("Synced %d active users",
-                          sync_user_data(company.Index, dates, 'active'))
+                          sync_user_data(company.id, dates, 'active'))
             if args.get("--inactive-users"):
                 logger().info("Synced %d inactive users",
-                              sync_user_data(company.Index, dates, 'inactive'))
+                              sync_user_data(company.id, dates, 'inactive'))
         if args.get('all') or args.get('wages'):
             logger().info("Synced %d wages for active users",
-                          sync_wage_data(company.Index, dates, 'active'))
+                          sync_wage_data(company.id, dates, 'active'))
             if args.get("--inactive-users"):
                 logger().info("Synced %d wages for inactive users",
-                              sync_wage_data(company.Index, dates, 'inactive'))
+                              sync_wage_data(company.id, dates, 'inactive'))
         if args.get('all') or args.get('receipts'):
             logger().info("Synced %d receipts",
-                          sync_receipt_data(company.Index, dates))
+                          sync_receipt_data(company.id, dates))
         if args.get('all') or args.get('shifts'):
             logger().info("Synced %d shifts",
-                          sync_shift_data(company.Index, dates))
+                          sync_shift_data(company.id, dates))
         if args.get('all') or args.get('punches'):
             logger().info("Synced %d approved time punches",
                           sync_punch_data(
-                              company.Index, dates, approved=True))
+                              company.id, dates, approved=True))
             if args.get('--unapproved'):
                 logger().info("Synced %d non-approved time punches",
                               sync_punch_data(
-                                  company.Index, dates, approved=False))
+                                  company.id, dates, approved=False))
         if args.get('all') or args.get('daily_sales_and_labor'):
             logger().info("Synced %d daily sales and labour records",
                           sync_daily_sales_and_labor_data(
-                              company.Index, dates))
+                              company.id, dates))
     return 0
