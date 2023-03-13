@@ -8,6 +8,8 @@ Ordering options for list operations:
   --order-field=F   the name of a field to order by
   --order-asc       order ascending
   --order-desc      order descending
+  --modified-since=DD  A YYYY-MM-DD formatted string to find roles
+                    modified on/after a date.
 
 General options:
 
@@ -21,6 +23,7 @@ ACCESS_TOKEN_7SHIFTS.
 """
 import logging
 import lib7shifts
+from .util import parse_last_modified
 from .common import get_7shifts_client, print_api_data, print_api_object
 
 
@@ -35,6 +38,9 @@ def build_list_args(args):
         list_args['order_dir'] = 'asc'
     elif args.get('--order-desc'):
         list_args['order_dir'] = 'desc'
+    if args.get('--modified-since'):
+        list_args['modified_since'] = parse_last_modified(
+            args.get('--modified-since'))
     LOG.debug("list_roles parameters: %s", list_args)
     return list_args
 

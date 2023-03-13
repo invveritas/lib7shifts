@@ -135,7 +135,11 @@ class APIClient7Shifts(object):
 
     def list(self, endpoint, **urlopen_kw):
         """Implements the List method for 7shifts API objects.
-        Pass a list of parameters using the `fields` kwarg."""
+        Pass a list of parameters using the `fields` kwarg.
+        By default, datetime objects will be serialized in YYYY-MM-DD format,
+        since that's the most common case in the API. If you need a specific
+        format, such as full date time, pass in as a string-formatted date.
+        """
         fields = {}
         for key, val in urlopen_kw.get('fields', {}).items():
             # print('item: {}'.format(key))
@@ -144,8 +148,11 @@ class APIClient7Shifts(object):
                     fields[key] = 'true'
                 else:
                     fields[key] = 'false'
-            elif isinstance(val, datetime.datetime):
-                fields[key] = dates.from_datetime(val)
+            elif isinstance(
+                    val, (datetime.date, datetime.datetime)):
+                # This is the most common use case. Callers that need a diff
+                # format must provide a formatted string.
+                fields[key] = val.strftime("%Y-%m-%d")
             else:
                 fields[key] = val
         urlopen_kw['fields'] = fields

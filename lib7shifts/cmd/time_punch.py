@@ -31,6 +31,7 @@ ACCESS_TOKEN_7SHIFTS.
 """
 import logging
 import lib7shifts
+from .util import parse_last_modified
 from .common import get_7shifts_client, print_api_data, print_api_object
 
 
@@ -54,7 +55,8 @@ def build_list_time_punch_args(args):
     if args.get('--approved'):
         list_args['approved'] = True
     if args.get('--modified-since'):
-        list_args['modified_since'] = args.get('--modified-since')
+        list_args['modified_since'] = parse_last_modified(
+            args.get('--modified-since'))
     if args.get('--clocked-in-on-after'):
         list_args['clocked_in[gte]'] = args.get('--clocked-in-on-after')
     if args.get('--clocked-in-before-on'):

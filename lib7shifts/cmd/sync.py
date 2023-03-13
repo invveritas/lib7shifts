@@ -20,7 +20,10 @@ Sync Options:
   --unapproved          Include unapproved time punches
   --inactive-users      Include deactivated users (default is active only)
   --modified-since=DD   Only sync items modified since the specified date
-                        (applies to most synced items)
+                        (applies to most synced items). YYYY-MM-DD format. For
+                        receipts, it may take one of these forms:
+                            YYYY-MM-DDTHH:MM:SSZ (GMT)
+                            YYYY-MM-DDTHH:MM:SS[+/-]HH:MM (for timezone offset)
   --start-date=DD       Sync punches, shifts and receipts starting on the
                         given date (incompatible with --modified-since).
   --end-date=DD         If --start-date is used, specify the last day to sync,
@@ -28,7 +31,8 @@ Sync Options:
   --company-id=NN       Provide a company ID in cases where one cannot be
                         inferred from API data (if you have multiple companies)
 
-Dates are in YYYY-MM-DD format. If neither --modified-since or --start-date
+Dates are in YYYY-MM-DD format, but --modified-since supports full date and
+time in some cases (ie. receipts). If neither --modified-since or --start-date
 are set, then the date is assumed to be yesterday from 12:00 AM to 11:59 PM.
 The url format for --db needs 4 slashes for on-disk paths on *Nix systems.
 
@@ -50,6 +54,7 @@ import sqlalchemy
 from datetime import timedelta, timezone, datetime
 from docopt import docopt
 import lib7shifts
+from .util import parse_last_modified
 from lib7shifts.dates import (
     to_local_date, yesterday, to_y_m_d, datetime_to_human_datetime)
 
@@ -88,11 +93,10 @@ def parse_dates(args):
     Returns a dict with named fields (start, end, modified_since)."""
     retval = {}
     if args.get('--modified-since'):
-        retval['modified_since'] = args.get('--modified-since')
-        retval['modified_end_ymd'] = to_y_m_d(yesterday())
+        retval['modified_since'] = parse_last_modified(
+            args.get('--modified-since'))
         logger().info(
-            "Using the following dates: modified_since:%s (up to %s)",
-            retval['modified_since'], retval['modified_end_ymd'])
+            "Using modified_since: %s", retval['modified_since'])
     else:
         eod = timedelta(hours=23, minutes=59, seconds=59)
         start_date = yesterday()
@@ -123,12 +127,12 @@ def db_upsert(table, data_frame, tmp_table_prefix='upsert_tmp_'):
     If more than 5,000 rows are provided in the dataframe, a warning
     will be issued (Python logging framework).
     """
-    if not sqlalchemy.inspect(get_db()).has_table(table):
-        with get_db().begin() as conn:
-            return data_frame.to_sql(table, conn, if_exists='replace')
     if len(data_frame) > 5000:
         logger().warn("%d rows supplied to db_upsert, recommend < 5000",
                       len(data_frame))
+    if not sqlalchemy.inspect(get_db()).has_table(table):
+        with get_db().begin() as conn:
+            return data_frame.to_sql(table, conn, if_exists='replace')
     keys = []
     if type(data_frame.index) is pandas.MultiIndex:
         keys.extend(data_frame.index.names)
@@ -396,8 +400,8 @@ def sync_daily_sales_and_labor_data(company_id, dates):
         kwargs['start_date'] = to_y_m_d(dates['start'])
         kwargs['end_date'] = to_y_m_d(dates['end'])
     else:
-        kwargs['start_date'] = dates['modified_since']
-        kwargs['end_date'] = dates['modified_end_ymd']
+        kwargs['start_date'] = to_y_m_d(dates['modified_since'])
+        kwargs['end_date'] = to_y_m_d(yesterday())
 
     # location data is required for daily sales and labour
     locations = get_location_data(company_id)
@@ -430,7 +434,8 @@ def main(**args):
     else:
         companies = get_all_company_data()
     if args.get('all') or args.get('companies'):
-        logger().info("Synced %d companies", sync_company_data(companies))
+        sync_data = companies.copy()
+        logger().info("Synced %d companies", sync_company_data(sync_data))
     for company in companies.itertuples():
         if args.get('all') or args.get('locations'):
             logger().info("Synced %d locations",

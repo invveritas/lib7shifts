@@ -29,7 +29,8 @@ def list_receipts(client, company_id, **kwargs):
       - location_id: the location where the transaction happened [required]
       - receipt_date[gte]: YYYY-MM-DD format for first date of receipts
       - receipt_date[lte]: as above but for end date
-      - modified_since: YYYY-MM-DD format for receipts modified on/after date
+      - modified_since: Full ISO8601 format for receipts modified on/after date
+                        eg. 2023-03-01T12:00-08:00
       - status: one of [open, closed, voided, deleted]
       - external_user_id: filter results by external user id that created them
       - cursor: used in paging
@@ -88,6 +89,11 @@ def list_receipts(client, company_id, **kwargs):
         raise RuntimeError("location_id must be provided as a kwarg")
     if 'limit' not in kwargs:
         kwargs['limit'] = 100
+    # modified date must be a full datetime string w/timezone
+    try:
+        kwargs['modified_since'] = kwargs['modified_since'].isoformat()
+    except (AttributeError, ValueError):
+        pass
     for item in base.page_api_get_results(
             client, ENDPOINT.format(company_id=company_id), **kwargs):
         yield Receipt(**item)

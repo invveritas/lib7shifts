@@ -12,7 +12,7 @@ class DateTime7Shifts(datetime.datetime):
     7shifts form. Vitually identical to datetime.datetime"""
 
     def __str__(self):
-        return self.strftime(DEFAULT_DATETIME_FORMAT)
+        return self.isoformat()
 
 
 def today(tzinfo=None):

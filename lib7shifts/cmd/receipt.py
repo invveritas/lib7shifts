@@ -28,6 +28,7 @@ ACCESS_TOKEN_7SHIFTS.
 """
 import logging
 import lib7shifts
+from .util import parse_last_modified
 from .common import get_7shifts_client, print_api_data, print_api_object
 
 
@@ -43,7 +44,8 @@ def build_list_args(args):
     if args.get('--receipt-on-or-after'):
         list_args['receipt_date[gte]'] = args.get('--receipt-on-or-after')
     if args.get('--modified-since'):
-        list_args['modified_since'] = args.get('--modified-since')
+        list_args['modified_since'] = parse_last_modified(
+            args.get('--modified-since'))
     if args.get('--open'):
         list_args['status'] = 'open'
     elif args.get('--closed'):
