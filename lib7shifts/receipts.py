@@ -92,7 +92,7 @@ def list_receipts(client, company_id, **kwargs):
     # modified date must be a full datetime string w/timezone
     try:
         kwargs['modified_since'] = kwargs['modified_since'].isoformat()
-    except (AttributeError, ValueError):
+    except (AttributeError, ValueError, KeyError):
         pass
     for item in base.page_api_get_results(
             client, ENDPOINT.format(company_id=company_id), **kwargs):
