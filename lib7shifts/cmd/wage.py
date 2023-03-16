@@ -14,7 +14,7 @@ import logging
 import lib7shifts
 from .common import get_7shifts_client, print_api_item
 
-LOG = logging.getLogger('lib7shifts.cli.user')
+LOG = logging.getLogger('lib7shifts.cli.assignments')
 
 
 def get_wages_by_user_id(args):
