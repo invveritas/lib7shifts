@@ -32,6 +32,7 @@ commands:
     time_punch  get/list time punch data from the API
     user        get/list user data from the API
     wage        get/list user wage data from the API
+    assignments  list user location/department/role assignments from the API
     whoami      retrieve identity information for the current access token
     help        show this screen
 
@@ -51,7 +52,8 @@ from docopt import docopt
 
 VALID_CMDS = (
     'company', 'department', 'location', 'event', 'role', 'shift', 'sync',
-    'receipt', 'time_punch', 'user', 'wage', 'daily_sales_labor', 'whoami')
+    'receipt', 'time_punch', 'user', 'wage', 'daily_sales_labor', 'whoami',
+    'assignments')
 
 
 def main(**args):

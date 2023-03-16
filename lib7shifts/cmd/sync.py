@@ -6,6 +6,7 @@ Usage:
   7shifts sync shifts [options]
   7shifts sync users [options]
   7shifts sync wages [options]
+  7shifts sync assignments [options]
   7shifts sync roles [options]
   7shifts sync receipts [options]
   7shifts sync locations [options]
@@ -124,11 +125,11 @@ def db_upsert(table, data_frame, tmp_table_prefix='upsert_tmp_'):
     method will raise an exception if the supplied data frame has no column
     index name(s) defined. The first data frame index is assumed to be primary.
 
-    If more than 5,000 rows are provided in the dataframe, a warning
+    If more than 10,000 rows are provided in the dataframe, a warning
     will be issued (Python logging framework).
     """
-    if len(data_frame) > 5000:
-        logger().warn("%d rows supplied to db_upsert, recommend < 5000",
+    if len(data_frame) > 10000:
+        logger().warn("%d rows supplied to db_upsert, recommend < 10000",
                       len(data_frame))
     if not sqlalchemy.inspect(get_db()).has_table(table):
         with get_db().begin() as conn:
@@ -283,6 +284,35 @@ def sync_wage_data(company_id, date_args, status='active'):
         if len(wages) > 0:
             wages.set_index('id', drop=True, inplace=True)
             updated += db_upsert('wages', wages)
+    return updated
+
+
+def get_user_assignment_data(company_id, user_id):
+    return lib7shifts.list_user_assignments(get_7shifts(), company_id, user_id)
+
+
+def sync_assignment_data(company_id, date_args, status='active'):
+    users = get_user_data(company_id, date_args, status)
+    updated = 0
+    data = {}
+    for user in users.itertuples():
+        # fetch data and store for later writing
+        for k, v in get_user_assignment_data(company_id, user.id).items():
+            logger().debug(
+                "found %d %s assignments for %s %s (id: %d)",
+                len(v), k, user.first_name, user.last_name, user.id)
+            if k not in data:
+                data[k] = list()
+            for d in v:
+                assignment = d.copy()
+                assignment['user_id'] = user.id
+                assignment[f"{k[:-1]}_id"] = assignment.pop('id')
+                data[k].append(assignment)
+    for k, v in data.items():
+        df = pandas.DataFrame.from_dict(v)
+        df.rename(columns={'id': f'{k}_id'})
+        df.set_index('user_id', drop=True, inplace=True)
+        updated += db_upsert(f"assignment_{k}", df)
     return updated
 
 
@@ -458,6 +488,13 @@ def main(**args):
             if args.get("--inactive-users"):
                 logger().info("Synced %d wages for inactive users",
                               sync_wage_data(company.id, dates, 'inactive'))
+        if args.get('all') or args.get('assignments'):
+            logger().info("Synced %d assignments for active users",
+                          sync_assignment_data(company.id, dates, 'active'))
+            if args.get("--inactive-users"):
+                logger().info("Synced %d assignments for inactive users",
+                              sync_assignment_data(
+                                  company.id, dates, 'inactive'))
         if args.get('all') or args.get('receipts'):
             logger().info("Synced %d receipts",
                           sync_receipt_data(company.id, dates))
