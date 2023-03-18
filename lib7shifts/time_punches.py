@@ -38,6 +38,8 @@ def list_punches(client, company_id, **kwargs):
     - clocked_in[lte] return punches with clock-in before/on this date
     - clocked_out[gte] return punches with clock-out on/after this date
     - clocked_out[lte] return punches with clock-out before/on this date
+    - localize_search_time If true, convert any date ranges to consider the
+      local timezone of the punches. If false, date ranges will be in UTC
     - sort_by: name of the field and direction to sort by, ie. user_id.asc
 
     Note that datetime objects may be passed in for the clocked_in/clocked_out

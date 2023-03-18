@@ -53,6 +53,11 @@ def list_shifts(client, company_id, **kwargs):
     - sort_by: either 'start' or 'end' shift time
     - sort_dir: either 'asc' or 'desc' for ascending/decending
 
+    The 7shifts `shifts` api endpoint supports full ISO8601 timestamps that
+    may optionally include a timezone offset, allowing for more precise control
+    and expected behaviour. An exception appears to be the modified_since
+    directive, which still only takes a YYYY-MM-DD value.
+
     Returns a :class:`ShiftList` object containing :class:`Shift` objects.
     """
     if 'limit' not in kwargs:

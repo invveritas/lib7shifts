@@ -26,8 +26,10 @@ Filtering options for list operations:
   --sort-asc        Sort ascending by time order
   --sort-desc       Sort descending by time order
 
-Note, get operations also support the --deleted parameter. Dates are always in
-YYYY-MM-DD format.
+Note, get operations also support the --deleted parameter. Dates are in
+ISO8601 format and support values like YYYY-MM-DD, YYYY-MM-DDTHH:MM:SS, or
+YYYY-MM-DDTHH:MM:SS-07:00. --modified-since only supports YYYY-MM-DD format
+due to API restrictions.
 
 General options:
 
