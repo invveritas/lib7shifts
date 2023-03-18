@@ -32,10 +32,21 @@ Sync Options:
   --company-id=NN       Provide a company ID in cases where one cannot be
                         inferred from API data (if you have multiple companies)
 
-Dates are in YYYY-MM-DD format, but --modified-since supports full date and
-time in some cases (ie. receipts). If neither --modified-since or --start-date
-are set, then the date is assumed to be yesterday from 12:00 AM to 11:59 PM.
-The url format for --db needs 4 slashes for on-disk paths on *Nix systems.
+For endpoints like `shifts` and `punches`, a full ISO8601 datetime may be
+provided, ie: YYYY-MM-DDTHH:MM:SS[+/-]HH:MM, or simply a date (assumed to be
+UTC timezone if you don't pass a time offset). --modified-since supports a full
+ISO8601 datetime only for the `receipts` endpoint. If you use the `all` method
+to try to sync everything at once, be aware that some time formats may result
+in API errors due to the discrepancies in time handling between API endpoints.
+Where possible, this tool attempts to massage data to fit the endpoints, but
+only by adding more specificity, not removing anything provided by the user.
+
+If neither --modified-since or --start-date are provided, then the date is
+assumed to be yesterday from 12:00 AM to 11:59 PM in the local timezone.
+
+The url format for --db always starts with 3 slashes for on-disk paths. So on
+*Nix systems, if you're using an absolute path like /home/me/test.db, you'll
+have a url with 4 leading slashes.
 
 General options:
 
@@ -388,6 +399,10 @@ def sync_shift_data(company_id, dates):
 
 
 def get_punch_data(company_id, date_args, approved=None):
+    """Get the punch data from the API and return it as a Pandas dataframe.
+    If approved is None, then both approved and unapproved punches are
+    included. Setting 'approved' to any other value results in only approved
+    punches being returned (that's how the API works right now)."""
     kwargs = {}
     if 'modified_since' in date_args:
         kwargs['modified_since'] = date_args['modified_since']
@@ -396,13 +411,17 @@ def get_punch_data(company_id, date_args, approved=None):
         kwargs['clocked_in[lte]'] = date_args['end']
     if approved is not None:
         kwargs['approved'] = approved
+    # this should help avoid unexpected results based on time provided by user
+    kwargs['localize_search_time'] = True
     return pandas.DataFrame.from_dict(
         lib7shifts.list_punches(get_7shifts(), company_id, **kwargs))
 
 
-def sync_punch_data(company_id, dates, approved=True):
+def sync_punch_data(company_id, dates, approved=None):
     """Get the pandas data frame from 7shifts API data and sync it to the
-    database.
+    database. If approved is None, then both approved and unapproved punches
+    are included. If approved is anything else, only approved punches are
+    synced.
     """
     data = get_punch_data(company_id, dates, approved=approved)
     logger().info(
@@ -506,9 +525,9 @@ def main(**args):
                           sync_punch_data(
                               company.id, dates, approved=True))
             if args.get('--unapproved'):
-                logger().info("Synced %d non-approved time punches",
+                logger().info("Synced %d approved/non-approved time punches",
                               sync_punch_data(
-                                  company.id, dates, approved=False))
+                                  company.id, dates, approved=None))
         if args.get('all') or args.get('daily_sales_and_labor'):
             logger().info("Synced %d daily sales and labour records",
                           sync_daily_sales_and_labor_data(
