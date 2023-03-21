@@ -9,6 +9,7 @@ Usage:
   7shifts sync assignments [options]
   7shifts sync roles [options]
   7shifts sync receipts [options]
+  7shifts sync departments [options]
   7shifts sync locations [options]
   7shifts sync companies [options]
   7shifts sync daily_sales_and_labor [options]
@@ -77,12 +78,12 @@ SQLAlchemy python packages.
 import logging
 import pandas
 import sqlalchemy
-from datetime import timedelta, timezone, datetime
+from datetime import timedelta
 from docopt import docopt
 import lib7shifts
 from .util import parse_last_modified
 from lib7shifts.dates import (
-    to_local_date, yesterday, to_y_m_d, datetime_to_human_datetime)
+    to_local_date, yesterday, to_y_m_d, get_local_tz)
 
 
 _CLIENT_7SHIFTS = None
@@ -125,7 +126,7 @@ def parse_dates(args):
             "Using modified_since: %s", retval['modified_since'])
     else:
         eod = timedelta(hours=23, minutes=59, seconds=59)
-        end = yesterday()
+        end = yesterday(tzinfo=get_local_tz())
         if args.get('--end-date'):
             end = to_local_date(args.get('--end-date'))
         days = timedelta(days=0)
@@ -135,14 +136,10 @@ def parse_dates(args):
         if args.get("--start-date"):
             start = to_local_date(args.get('--start-date'))
         end += eod
-        retval['end'] = datetime.fromtimestamp(
-            end.timestamp(), timezone.utc)
-        retval['start'] = datetime.fromtimestamp(
-            start.timestamp(), timezone.utc)
+        retval['end'] = end
+        retval['start'] = start
         logger().info(
-            "Using the following dates: start:%s, end:%s",
-            datetime_to_human_datetime(retval['start']),
-            datetime_to_human_datetime(retval['end']))
+            "Using the following dates: start:%s, end:%s", start, end)
     return retval
 
 
@@ -424,13 +421,12 @@ def get_punch_data(company_id, date_args, approved=None):
     kwargs = {}
     if 'modified_since' in date_args:
         kwargs['modified_since'] = date_args['modified_since']
+        kwargs['localize_search_time'] = True
     else:
         kwargs['clocked_in[gte]'] = date_args['start']
         kwargs['clocked_in[lte]'] = date_args['end']
     if approved is not None:
         kwargs['approved'] = approved
-    # this should help avoid unexpected results based on time provided by user
-    kwargs['localize_search_time'] = True
     return pandas.DataFrame.from_dict(
         lib7shifts.list_punches(get_7shifts(), company_id, **kwargs))
 
@@ -507,7 +503,7 @@ def main(**args):
         if args.get('all') or args.get('locations'):
             logger().info("Synced %d locations",
                           sync_location_data(company.id, dates))
-        if args.get('all') or args.get('deparments'):
+        if args.get('all') or args.get('departments'):
             logger().info("Synced %d departments",
                           sync_deparment_data(company.id, dates))
         if args.get('all') or args.get('roles'):

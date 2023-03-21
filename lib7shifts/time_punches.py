@@ -34,12 +34,17 @@ def list_punches(client, company_id, **kwargs):
     - user_id
     - approved: boolean
     - modified_since: return punches modified since the specified date
-    - clocked_in[gte]: return punches with clock-in on/after this date
-    - clocked_in[lte] return punches with clock-in before/on this date
-    - clocked_out[gte] return punches with clock-out on/after this date
-    - clocked_out[lte] return punches with clock-out before/on this date
+    - clocked_in[gte]: datetime object used to filter punches based on clock-in
+                        time. Return punches with clock-in on/after this date
+    - clocked_in[lte] as above, but for clock-in before/on this datetime
+    - clocked_out[gte] datetime object used to filter punches based on
+                        clock-out time. Return punches with clock-out on/after
+                        this date
+    - clocked_out[lte] as above, but with clock-out before/on this date
     - localize_search_time If true, convert any date ranges to consider the
-      local timezone of the punches. If false, date ranges will be in UTC
+      local timezone of the punches. Only applies to modified_since in this
+      method because all clocked_in/clocked_out dates are supplied to the API
+      as full date-time values with timezone offsets.
     - sort_by: name of the field and direction to sort by, ie. user_id.asc
 
     Note that datetime objects may be passed in for the clocked_in/clocked_out
@@ -50,6 +55,22 @@ def list_punches(client, company_id, **kwargs):
     """
     if 'limit' not in kwargs:
         kwargs['limit'] = 500
+    if kwargs.get('clocked_in[gte]'):
+        # cast to iso8601 because the endpoint supports full date-time
+        kwargs['clocked_in[gte]'] = dates.iso8601_dt(
+            kwargs.get('clocked_in[gte]'))
+    if kwargs.get('clocked_in[lte]'):
+        # cast to iso8601 because the endpoint supports full date-time
+        kwargs['clocked_in[lte]'] = dates.iso8601_dt(
+            kwargs.get('clocked_in[lte]'))
+    if kwargs.get('clocked_out[gte]'):
+        # cast to iso8601 because the endpoint supports full date-time
+        kwargs['clocked_out[gte]'] = dates.iso8601_dt(
+            kwargs.get('clocked_out[gte]'))
+    if kwargs.get('clocked_out[lte]'):
+        # cast to iso8601 because the endpoint supports full date-time
+        kwargs['clocked_out[lte]'] = dates.iso8601_dt(
+            kwargs.get('clocked_out[lte]'))
     for item in base.page_api_get_results(
             client, ENDPOINT.format(company_id=company_id),
             **kwargs):

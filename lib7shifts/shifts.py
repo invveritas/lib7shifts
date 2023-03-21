@@ -39,11 +39,12 @@ def list_shifts(client, company_id, **kwargs):
     - department_ids: a list of department IDs to search for
     - role_id: shifts for a specific role
     - user_id: shifts for a specific user
-    - start[gte]: return shifts that start on or after the specified date. 
-                    datetime or string time format (greater than/equal to)
-    - start[lte]: as above, but shifts that start on or before the date.
-    - end[lte]: shifts that end before or on specified date
-    - end[gte]: shifts that end after or on the specified date
+    - start[gte]: a datetime-like object specifying a time to filter shifts
+                    based on their start time (on/after this datetime)
+    - start[lte]: as above, but return shifts that start on/before the date
+    - end[lte]: a datetime-like object that filters shifts based on their end
+                    times (on/before this datetime)
+    - end[gte]: as above, but return shifts on/after this datetime
     - deleted: boolean, whether to include deleted shifts in the results
     - draft: boolean, include ONLY un-published shifts in the results.
                         Overrides the deleted flag.
@@ -53,15 +54,32 @@ def list_shifts(client, company_id, **kwargs):
     - sort_by: either 'start' or 'end' shift time
     - sort_dir: either 'asc' or 'desc' for ascending/decending
 
-    The 7shifts `shifts` api endpoint supports full ISO8601 timestamps that
-    may optionally include a timezone offset, allowing for more precise control
-    and expected behaviour. An exception appears to be the modified_since
-    directive, which still only takes a YYYY-MM-DD value.
+    All date-time start/end arguments will be cast to an iso8601 format
+    supported by the 7shifts API. If the supplied datetime is unaware of
+    timezones, then the local timezone will be used. Unfortunately the
+    `modified_since` paramter can only be cast to YYYY-MM-DD format based on
+    API limitations.
 
     Returns a :class:`ShiftList` object containing :class:`Shift` objects.
     """
     if 'limit' not in kwargs:
         kwargs['limit'] = 500
+    if kwargs.get('start[lte]'):
+        # cast to iso8601 because the endpoint supports full date-time
+        kwargs['start[lte]'] = dates.iso8601_dt(
+            kwargs.get('start[lte]'))
+    if kwargs.get('start[gte]'):
+        # cast to iso8601 because the endpoint supports full date-time
+        kwargs['start[gte]'] = dates.iso8601_dt(
+            kwargs.get('start[gte]'))
+    if kwargs.get('end[lte]'):
+        # cast to iso8601 because the endpoint supports full date-time
+        kwargs['end[lte]'] = dates.iso8601_dt(
+            kwargs.get('end[lte]'))
+    if kwargs.get('end[gte]'):
+        # cast to iso8601 because the endpoint supports full date-time
+        kwargs['end[gte]'] = dates.iso8601_dt(
+            kwargs.get('end[gte]'))
     for item in base.page_api_get_results(
             client, ENDPOINT.format(company_id=company_id),
             **kwargs):

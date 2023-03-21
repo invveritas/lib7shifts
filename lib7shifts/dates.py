@@ -9,10 +9,11 @@ DEFAULT_DATE_FORMAT = '%Y-%m-%d'
 
 class DateTime7Shifts(datetime.datetime):
     """Override representation of dates in datetime objects to match
-    7shifts form. Vitually identical to datetime.datetime"""
+    7shifts form. Vitually identical to datetime.datetime, except that string
+    representations are in ISO8601 date-time format in UTC."""
 
     def __str__(self):
-        return self.isoformat()
+        return iso8601_dt(self)
 
 
 def today(tzinfo=None):
@@ -109,3 +110,25 @@ def datetime_to_human_date(dt_obj):
 
 def datetime_to_human_datetime(dt_obj):
     return dt_obj.strftime('%Y-%m-%d %H:%M:%S')
+
+
+def iso8601_dt(dt_obj, tzinfo=None):
+    """Many of the v2 API endpoints can take time formatted as an ISO 8601
+    date-time string, but it must be in UTC/GMT. Pass any datetime-like object
+    to this method and receive a string formatted for an 8601 datetime that the
+    API supports. If TZ-aware datetimes are provided, they will be converted
+    directly to UTC, or optionally to the timezone specified by tzinfo. 
+    If not TZ-aware, all datetimes will be cast to the local
+    timezone first, then converted to UTC. The time output will use Zulu
+    format, since that's what 7shifts' Javascript libraries are looking for
+    (based on email dialogue with 7shifts API maintainers)."""
+    assert isinstance(
+        dt_obj, datetime.datetime), "A datetime object must be passed"
+    if not tzinfo:
+        tzinfo = datetime.timezone.utc
+    if dt_obj.tzinfo is None:
+        # not a tz-aware datetime, cast to local zone
+        dt_obj = dt_obj.replace(tzinfo=get_local_tz())
+    return datetime.datetime.fromtimestamp(
+        dt_obj.timestamp(), tzinfo).isoformat(
+            timespec='seconds').replace('+00:00', 'Z')

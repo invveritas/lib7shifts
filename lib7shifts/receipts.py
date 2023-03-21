@@ -7,6 +7,7 @@ details.
 """
 from . import base
 from . import exceptions
+from . import dates
 
 ENDPOINT = '/v2/company/{company_id}/receipts'
 
@@ -27,17 +28,19 @@ def list_receipts(client, company_id, **kwargs):
     the following filter params, as kwargs:
 
       - location_id: the location where the transaction happened [required]
-      - receipt_date[gte]: YYYY-MM-DD format for first date of receipts
+      - receipt_date[gte]: datetime (tz-aware ok) first date of receipts
       - receipt_date[lte]: as above but for end date
-      - modified_since: Full ISO8601 format for receipts modified on/after date
-                        eg. 2023-03-01T12:00-08:00
+      - modified_since: datetime (tz-aware okay) for receipts modified on/after
+                        date/time
       - status: one of [open, closed, voided, deleted]
       - external_user_id: filter results by external user id that created them
       - cursor: used in paging
       - limit: the desired number of results to include
 
     Note that receipts older than 90 days cannot be found. An error will be
-    returned if you attempt to query past 90 days.
+    returned if you attempt to query past 90 days. All datetime objects will
+    be cast to an ISO8601 date-time format supported by the API, using the
+    local timezone for any timezone-unaware datetime objects.
 
     Data will be yielded out in an iterable format like this::
 
@@ -89,11 +92,19 @@ def list_receipts(client, company_id, **kwargs):
         raise RuntimeError("location_id must be provided as a kwarg")
     if 'limit' not in kwargs:
         kwargs['limit'] = 100
-    # modified date must be a full datetime string w/timezone
+    # modified date must be a full datetime string w/timezone for this endpoint
     try:
-        kwargs['modified_since'] = kwargs['modified_since'].isoformat()
+        kwargs['modified_since'] = dates.iso8601_dt(kwargs['modified_since'])
     except (AttributeError, ValueError, KeyError):
         pass
+    if kwargs.get('receipt_date[lte]'):
+        # cast to iso8601 because the endpoint supports full date-time
+        kwargs['receipt_date[lte]'] = dates.iso8601_dt(
+            kwargs.get('receipt_date[lte]'))
+    if kwargs.get('receipt_date[gte]'):
+        # cast to iso8601 because the endpoint supports full date-time
+        kwargs['receipt_date[gte]'] = dates.iso8601_dt(
+            kwargs.get('receipt_date[gte]'))
     for item in base.page_api_get_results(
             client, ENDPOINT.format(company_id=company_id), **kwargs):
         yield Receipt(**item)
