@@ -111,7 +111,7 @@ def create_receipt(client, company_id, **kwargs):
     """
     response = client.create(
         ENDPOINT.format(company_id=company_id), body=kwargs)
-    return response['uuid']
+    return response['data']['uuid']
 
 
 def update_receipt(client, company_id, receipt_id, **kwargs):

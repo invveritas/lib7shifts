@@ -217,6 +217,7 @@ class APIClient7Shifts(object):
         headers['Authorization'] = f'Bearer {self.access_token}'
         headers['x-api-version'] = self.API_VERSION
         headers['accept'] = 'application/json'
+        headers['content-type'] = 'application/json'
         self.__connection_pool = urllib3.connectionpool.connection_from_url(
             self.BASE_URL, cert_reqs='CERT_REQUIRED', ca_certs=certifi.where(),
             headers=headers)
