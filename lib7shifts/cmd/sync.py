@@ -27,10 +27,27 @@ Sync Options:
                             YYYY-MM-DDTHH:MM:SS[+/-]HH:MM (for timezone offset)
   --start-date=DD       Sync punches, shifts and receipts starting on the
                         given date (incompatible with --modified-since).
-  --end-date=DD         If --start-date is used, specify the last day to sync,
-                        defaults to today
+  --end-date=DD         Specify the last day to sync, defaults to yesterday
+  --last-n-days=NN      Use a relative time sync for the past N days prior to,
+                        and including today (NN=1 equals sync yesterday+today)
   --company-id=NN       Provide a company ID in cases where one cannot be
                         inferred from API data (if you have multiple companies)
+
+If --modified-since is provided, it trumps all other date arguments. If it is
+not present, then date handling is as follows:
+
+- If --start-date is provided, alone, then everything from that date to
+    today at 12:00 AM will be synced.
+- If --end-date is provided, alone, then only that date will be synced
+- If --start-date and --end-date are provide together, then that range will be
+    synced and --last-n-days will be ignored, if present.
+- If --last-n-days is provided alone, then the last N days up to today at 12AM
+    will be synced
+- If --last-n-days is provided with --end-date, then the last N days prior to
+    end date at 11:59:59PM will be synced (N full days)
+assumed to be yesterday from 12:00 AM to 11:59 PM in the local timezone unless
+'--last-n-days' is used.
+- If no date arguments are provided, at all, then yesterday will be synced
 
 For endpoints like `shifts` and `punches`, a full ISO8601 datetime may be
 provided, ie: YYYY-MM-DDTHH:MM:SS[+/-]HH:MM, or simply a date (assumed to be
@@ -41,10 +58,7 @@ in API errors due to the discrepancies in time handling between API endpoints.
 Where possible, this tool attempts to massage data to fit the endpoints, but
 only by adding more specificity, not removing anything provided by the user.
 
-If neither --modified-since or --start-date are provided, then the date is
-assumed to be yesterday from 12:00 AM to 11:59 PM in the local timezone.
-
-The url format for --db always starts with 3 slashes for on-disk paths. So on
+The url format for '--db' always starts with 3 slashes for on-disk paths. So on
 *Nix systems, if you're using an absolute path like /home/me/test.db, you'll
 have a url with 4 leading slashes.
 
@@ -111,16 +125,20 @@ def parse_dates(args):
             "Using modified_since: %s", retval['modified_since'])
     else:
         eod = timedelta(hours=23, minutes=59, seconds=59)
-        start_date = yesterday()
-        if args.get("--start-date"):
-            start_date = to_local_date(args.get('--start-date'))
-        retval['start'] = datetime.fromtimestamp(
-            start_date.timestamp(), timezone.utc)
-        end_date = start_date + eod
+        end = yesterday()
         if args.get('--end-date'):
-            end_date = to_local_date(args.get('--end-date')) + eod
+            end = to_local_date(args.get('--end-date'))
+        days = timedelta(days=0)
+        if args.get('--last-n-days'):
+            days = timedelta(days=int(args.get('--last-n-days'))-1)
+        start = end - days  # we are still at start of day offset
+        if args.get("--start-date"):
+            start = to_local_date(args.get('--start-date'))
+        end += eod
         retval['end'] = datetime.fromtimestamp(
-            end_date.timestamp(), timezone.utc)
+            end.timestamp(), timezone.utc)
+        retval['start'] = datetime.fromtimestamp(
+            start.timestamp(), timezone.utc)
         logger().info(
             "Using the following dates: start:%s, end:%s",
             datetime_to_human_datetime(retval['start']),
