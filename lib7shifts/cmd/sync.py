@@ -33,6 +33,8 @@ Sync Options:
                         and including today (NN=1 equals sync yesterday+today)
   --company-id=NN       Provide a company ID in cases where one cannot be
                         inferred from API data (if you have multiple companies)
+  --tz=STR              Specify a timezone to work in
+                        [default: America/Edmonton]
 
 If --modified-since is provided, it trumps all other date arguments. If it is
 not present, then date handling is as follows:
@@ -50,9 +52,7 @@ assumed to be yesterday from 12:00 AM to 11:59 PM in the local timezone unless
 '--last-n-days' is used.
 - If no date arguments are provided, at all, then yesterday will be synced
 
-For endpoints like `shifts` and `punches`, a full ISO8601 datetime may be
-provided, ie: YYYY-MM-DDTHH:MM:SS[+/-]HH:MM, or simply a date (assumed to be
-UTC timezone if you don't pass a time offset). --modified-since supports a full
+The --modified-since argument supports a full
 ISO8601 datetime only for the `receipts` endpoint. If you use the `all` method
 to try to sync everything at once, be aware that some time formats may result
 in API errors due to the discrepancies in time handling between API endpoints.
@@ -78,12 +78,11 @@ SQLAlchemy python packages.
 import logging
 import pandas
 import sqlalchemy
-from datetime import timedelta
+from datetime import timedelta, date, datetime, time
 from docopt import docopt
 import lib7shifts
 from .util import parse_last_modified
-from lib7shifts.dates import (
-    to_local_date, yesterday, to_y_m_d, get_local_tz)
+from lib7shifts.dates import get_local_tz
 
 
 _CLIENT_7SHIFTS = None
@@ -125,21 +124,28 @@ def parse_dates(args):
         logger().info(
             "Using modified_since: %s", retval['modified_since'])
     else:
-        eod = timedelta(hours=23, minutes=59, seconds=59)
-        end = yesterday(tzinfo=get_local_tz())
+        # all the date math is done in naive date objects so that we don't
+        # mess up TZ offsets when we cross DST boundaries. Dates are converted
+        # to their actual zones LAST.
+        end = date.today()
         if args.get('--end-date'):
-            end = to_local_date(args.get('--end-date'))
-        days = timedelta(days=0)
+            end = date.fromisoformat(args.get('--end-date'))
+        days = timedelta(days=1)
         if args.get('--last-n-days'):
-            days = timedelta(days=int(args.get('--last-n-days'))-1)
-        start = end - days  # we are still at start of day offset
+            days = timedelta(days=int(args.get('--last-n-days')))
+        start = end - days
         if args.get("--start-date"):
-            start = to_local_date(args.get('--start-date'))
-        end += eod
-        retval['end'] = end
-        retval['start'] = start
+            start = date.fromisoformat(args.get('--start-date'))
+        # now let's convert to TZ-aware datetime in local timezone. This is
+        # actually pretty tricky with the python standard library, but we're
+        # already using Pandas, so let's let it help us get this right. ;-)
+        dr = pandas.date_range(start, end, freq='D', tz=args.get('--tz'))
+        # 11:59:59 pm in local zone for whatever date 'end' was
+        retval['end'] = dr[-1] - timedelta(seconds=1)
+        retval['start'] = dr[0]
         logger().info(
-            "Using the following dates: start:%s, end:%s", start, end)
+            "Using the following datetimes: start:%s, end:%s",
+            retval['start'], retval['end'])
     return retval
 
 
