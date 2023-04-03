@@ -96,6 +96,7 @@ class APIClient7Shifts(object):
         self.log = logging.getLogger(self.__class__.__name__)
         self.access_token = kwargs.pop('access_token')
         self.rate_limit_lock = kwargs.pop('rate_limit_lock', None)
+        self.API_VERSION = kwargs.pop("api_version", self.API_VERSION)
         self.__connection_pool = None
 
     def get_endpoint(self, endpoint, **urlopen_kw):
