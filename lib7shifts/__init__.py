@@ -84,7 +84,7 @@ class APIClient7Shifts(object):
     ENCODING = 'utf8'
     KEEP_ALIVE = True
     USER_AGENT = 'py-lib7shifts'
-    API_VERSION = '2022-10-01'
+    API_VERSION = '2023-04-01'
 
     def __init__(self, **kwargs):
         """
